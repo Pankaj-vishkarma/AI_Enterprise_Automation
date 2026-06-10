@@ -7,7 +7,9 @@ from app.core.dependencies import (
     SUPER_ADMIN_ROLE,
 )
 from app.core.security import hash_password
+from app.repositories.department_repository import DepartmentRepository
 from app.repositories.role_repository import RoleRepository
+from app.repositories.team_repository import TeamRepository
 from app.repositories.user_repository import UserRepository
 
 
@@ -17,6 +19,8 @@ class UserService:
         self.db = db
         self.user_repo = UserRepository(db)
         self.role_repo = RoleRepository(db)
+        self.department_repo = DepartmentRepository(db)
+        self.team_repo = TeamRepository(db)
 
     def _role_by_name(self, role_name: str):
         role = self.role_repo.get_by_name(role_name)
@@ -167,4 +171,76 @@ class UserService:
         return self.user_repo.update_is_active(
             target_user_id,
             True,
+        )
+
+    def assign_user_to_department(
+        self,
+        current_user,
+        target_user_id: int,
+        department_id: int,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        department = self.department_repo.get_by_id(department_id)
+
+        if not department:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and department.organization_id != current_user.organization_id
+        ):
+            raise PermissionError(
+                "Cross-organization department assignment is not allowed"
+            )
+
+        return self.user_repo.update_department_id(
+            target_user_id,
+            department_id,
+        )
+
+    def assign_user_to_team(
+        self,
+        current_user,
+        target_user_id: int,
+        team_id: int,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        team = self.team_repo.get_by_id(team_id)
+
+        if not team:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and team.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization team assignment is not allowed")
+
+        return self.user_repo.update_team_id(
+            target_user_id,
+            team_id,
         )

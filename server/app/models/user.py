@@ -15,6 +15,10 @@ class User(Base):
 
     role_id = Column(Integer, ForeignKey("roles.id"), nullable=False)
 
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=True)
+
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+
     first_name = Column(String(100), nullable=False)
 
     last_name = Column(String(100))
@@ -33,3 +37,5 @@ class User(Base):
 
     organization = relationship("Organization")
     role = relationship("Role")
+    department = relationship("Department")
+    team = relationship("Team")

@@ -116,3 +116,54 @@ class UserRepository:
         self.db.refresh(user)
 
         return user
+
+    def update_department_id(
+        self,
+        user_id: int,
+        department_id: int | None,
+    ):
+        user = self.get_by_id(user_id)
+
+        if not user:
+            return None
+
+        user.department_id = department_id
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user
+
+    def update_team_id(
+        self,
+        user_id: int,
+        team_id: int | None,
+    ):
+        user = self.get_by_id(user_id)
+
+        if not user:
+            return None
+
+        user.team_id = team_id
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user
+
+    def update_role_id(
+        self,
+        user_id: int,
+        role_id: int,
+    ):
+        user = self.get_by_id(user_id)
+
+        if not user:
+            return None
+
+        user.role_id = role_id
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user

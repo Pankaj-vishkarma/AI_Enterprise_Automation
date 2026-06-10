@@ -22,7 +22,10 @@ from app.core.database import Base
 
 # Import all models for autogenerate
 from app.models.organization import Organization
+from app.models.department import Department
+from app.models.permission import Permission
 from app.models.role import Role
+from app.models.team import Team
 from app.models.user import User
 from app.models.user_session import UserSession
 

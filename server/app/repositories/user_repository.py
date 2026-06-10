@@ -50,7 +50,11 @@ class UserRepository:
             .all()
         )
 
-    def list_by_organization_and_roles(self, organization_id: int, role_ids: list[int]):
+    def list_by_organization_and_roles(
+        self,
+        organization_id: int,
+        role_ids: list[int],
+    ):
         return (
             self.db.query(User)
             .filter(
@@ -61,13 +65,53 @@ class UserRepository:
             .all()
         )
 
-    def update_is_active(self, user_id: int, is_active: bool):
+    def update_is_active(
+        self,
+        user_id: int,
+        is_active: bool,
+    ):
         user = self.get_by_id(user_id)
 
         if not user:
             return None
 
         user.is_active = is_active
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        return user
+
+    def get_by_email_excluding_user(
+        self,
+        email: str,
+        user_id: int,
+    ):
+        return (
+            self.db.query(User)
+            .filter(
+                User.email == email,
+                User.id != user_id,
+            )
+            .first()
+        )
+
+    def update_user(
+        self,
+        user_id: int,
+        first_name: str,
+        last_name: str | None,
+        email: str,
+    ):
+        user = self.get_by_id(user_id)
+
+        if not user:
+            return None
+
+        user.first_name = first_name
+        user.last_name = last_name
+        user.email = email
+
         self.db.commit()
         self.db.refresh(user)
 

@@ -7,7 +7,11 @@ from app.core.dependencies import (
     require_org_admin,
     require_super_admin,
 )
-from app.schemas.user_management import ManagedUserCreate, UserOut
+from app.schemas.user_management import (
+    ManagedUserCreate,
+    UserOut,
+    UserUpdate,
+)
 from app.services.user_service import UserService
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
@@ -114,6 +118,115 @@ def disable_user(
     service = UserService(db)
     try:
         user = service.disable_user(current_user, user_id)
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    return user
+
+
+@router.get("/{user_id}", response_model=UserOut)
+def get_user(
+    user_id: int,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    service = UserService(db)
+
+    try:
+        user = service.get_user_by_id(
+            current_user,
+            user_id,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    return user
+
+
+@router.patch("/{user_id}", response_model=UserOut)
+def update_user(
+    user_id: int,
+    payload: UserUpdate,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    current_role = current_user.role.name if current_user.role else None
+
+    if current_role not in {"SUPER_ADMIN", "ORG_ADMIN"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SUPER_ADMIN or ORG_ADMIN access required",
+        )
+
+    service = UserService(db)
+
+    try:
+        user = service.update_user(
+            current_user=current_user,
+            target_user_id=user_id,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=payload.email,
+        )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    return user
+
+
+@router.patch("/{user_id}/enable", response_model=UserOut)
+def enable_user(
+    user_id: int,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    current_role = current_user.role.name if current_user.role else None
+
+    if current_role not in {"SUPER_ADMIN", "ORG_ADMIN"}:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="SUPER_ADMIN or ORG_ADMIN access required",
+        )
+
+    service = UserService(db)
+
+    try:
+        user = service.enable_user(
+            current_user,
+            user_id,
+        )
     except PermissionError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

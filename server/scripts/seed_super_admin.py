@@ -13,6 +13,7 @@ if str(ROOT) not in sys.path:
 
 from app.core.database import SessionLocal
 from app.core.security import hash_password
+from app.models.permission import Permission
 from app.models.organization import Organization
 from app.models.role import Role
 from app.models.user import User
@@ -24,6 +25,11 @@ SUPER_ADMIN_FIRST_NAME = "Super"
 SUPER_ADMIN_LAST_NAME = "Admin"
 SUPER_ADMIN_ORG_NAME = "Platform"
 SUPER_ADMIN_ROLE_NAME = "SUPER_ADMIN"
+KNOWLEDGE_PERMISSIONS = (
+    "KNOWLEDGE_VIEW",
+    "KNOWLEDGE_MANAGE",
+    "KNOWLEDGE_ASK",
+)
 
 
 def main() -> None:
@@ -36,6 +42,24 @@ def main() -> None:
             db.add(role)
             db.commit()
             db.refresh(role)
+
+        permissions = []
+        for permission_name in KNOWLEDGE_PERMISSIONS:
+            permission = (
+                db.query(Permission).filter(Permission.name == permission_name).first()
+            )
+            if not permission:
+                permission = Permission(name=permission_name)
+                db.add(permission)
+                db.commit()
+                db.refresh(permission)
+            permissions.append(permission)
+
+        for permission in permissions:
+            if permission not in role.permissions:
+                role.permissions.append(permission)
+
+        db.commit()
 
         super_admin_users = (
             db.query(User).filter(User.role_id == role.id).order_by(User.id.asc()).all()

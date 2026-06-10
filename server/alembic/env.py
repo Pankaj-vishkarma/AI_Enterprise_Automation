@@ -23,6 +23,11 @@ from app.core.database import Base
 # Import all models for autogenerate
 from app.models.organization import Organization
 from app.models.department import Department
+from app.models.knowledge_document import KnowledgeDocument
+from app.models.knowledge_document_chunk import KnowledgeDocumentChunk
+from app.models.knowledge_query import KnowledgeQuery
+from app.models.conversation import Conversation
+from app.models.conversation_message import ConversationMessage
 from app.models.permission import Permission
 from app.models.role import Role
 from app.models.team import Team

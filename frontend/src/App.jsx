@@ -36,6 +36,7 @@ import WorkflowInstancePage from './pages/workflows/WorkflowInstancePage';
 import ResearchPage from './pages/research/ResearchPage';
 import ResearchReportPage from './pages/research/ResearchReportPage';
 import BrowserAutomationPage from './pages/browser/BrowserAutomationPage';
+import BrowserTaskPage from './pages/browser/BrowserTaskPage';
 import VoicePage from './pages/voice/VoicePage';
 import SupportPage from './pages/support/SupportPage';
 import OmnichannelPage from './pages/omnichannel/OmnichannelPage';
@@ -135,6 +136,7 @@ function AppRoutes() {
 
       {/* Browser Automation */}
       <Route path="/browser-automation" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><BrowserAutomationPage /></Suspense></ProtectedRoute>} />
+      <Route path="/browser-automation/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><BrowserTaskPage /></Suspense></ProtectedRoute>} />
 
       {/* Voice AI Platform */}
       <Route path="/voice-ai" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><VoicePage /></Suspense></ProtectedRoute>} />

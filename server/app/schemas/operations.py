@@ -32,7 +32,8 @@ class OperationalRecordResponse(BaseModel):
 
 class CollaborationRequest(BaseModel):
     prompt: str = Field(min_length=1)
-    team: str = "market-research"
+    team_id: int | None = None
+    team: str | None = None
 
 
 class ReasoningRequest(BaseModel):

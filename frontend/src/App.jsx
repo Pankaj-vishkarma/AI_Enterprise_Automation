@@ -29,6 +29,7 @@ import ConversationsPage from './pages/conversations/ConversationsPage';
 
 // New AI & Operations Hub pages
 import EmployeesPage from './pages/employees/EmployeesPage';
+import EmployeeDetailPage from './pages/employees/EmployeeDetailPage';
 import CollaborationPage from './pages/collaboration/CollaborationPage';
 import WorkflowsPage from './pages/workflows/WorkflowsPage';
 import ResearchPage from './pages/research/ResearchPage';
@@ -117,6 +118,7 @@ function AppRoutes() {
 
       {/* AI Employee Studio */}
       <Route path="/employees" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><EmployeesPage /></Suspense></ProtectedRoute>} />
+      <Route path="/employees/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><EmployeeDetailPage /></Suspense></ProtectedRoute>} />
 
       {/* Multi-Agent Collaboration */}
       <Route path="/collaboration" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><CollaborationPage /></Suspense></ProtectedRoute>} />

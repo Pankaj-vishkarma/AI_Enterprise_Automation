@@ -26,4 +26,13 @@ class GroqClient:
         r.raise_for_status()
         data = r.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        return {"output": {"text": text}, "raw": data}
+        usage = data.get("usage") or {}
+        return {
+            "output": {"text": text},
+            "usage": {
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
+            },
+            "raw": data,
+        }

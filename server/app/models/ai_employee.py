@@ -17,8 +17,11 @@ class AIEmployee(Base):
     model = Column(String(100), nullable=True)
     instructions = Column(Text, nullable=False)
     tools_json = Column(Text, nullable=False, default="[]")
+    knowledge_document_ids_json = Column(Text, nullable=False, default="[]")
     status = Column(String(50), nullable=False, default="Active", index=True)
     is_active = Column(Boolean, default=True)
+    is_deleted = Column(Boolean, default=False, index=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

@@ -13,6 +13,26 @@ class RAGService:
         self.groq = GroqClient()
         self.query_repo = KnowledgeQueryRepository(db)
 
+    def retrieve_context(
+        self,
+        current_user,
+        question_text: str,
+        top_k: int = 5,
+        document_ids: list | None = None,
+    ) -> str:
+        """Retrieve knowledge context without persisting a query record."""
+        qvec = self.emb.embed_texts([question_text])[0]
+        results = self.search.search(current_user.organization_id, qvec, top_k=top_k)
+        if not results:
+            ks = KnowledgeSearchService(self.db)
+            _, chunks = ks.ask(current_user, question_text, top_k)
+            results = [(1.0, c) for c in chunks]
+        if document_ids:
+            allowed = set(document_ids)
+            results = [(score, chunk) for score, chunk in results if chunk.document_id in allowed]
+        context_lines = [chunk.chunk_text.strip() for _, chunk in results]
+        return "\n\n".join(context_lines)
+
     def ask(self, current_user, question_text: str, top_k: int = 5):
         qvec = self.emb.embed_texts([question_text])[0]
         results = self.search.search(current_user.organization_id, qvec, top_k=top_k)

@@ -1,7 +1,9 @@
 import json
+from collections import Counter
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.ai_employee import AIEmployee
 from app.models.ai_employee_run import AIEmployeeRun
@@ -12,8 +14,9 @@ class AIEmployeeRepository:
         self.db = db
 
     @staticmethod
-    def serialize(employee: AIEmployee) -> dict:
-        runs = sorted(employee.runs or [], key=lambda item: item.id, reverse=True)
+    def serialize(employee: AIEmployee, include_runs: bool = True) -> dict:
+        runs = sorted(employee.runs or [], key=lambda item: item.id, reverse=True) if include_runs else []
+        knowledge_ids = json.loads(employee.knowledge_document_ids_json or "[]")
         return {
             "id": employee.id,
             "organization_id": employee.organization_id,
@@ -29,6 +32,8 @@ class AIEmployeeRepository:
                 "model": employee.model,
                 "instructions": employee.instructions,
                 "tools": json.loads(employee.tools_json or "[]"),
+                "knowledge_document_ids": knowledge_ids,
+                "is_active": employee.is_active,
                 "runs": [
                     {
                         "id": run.id,
@@ -36,34 +41,73 @@ class AIEmployeeRepository:
                         "output": run.output,
                         "status": run.status,
                         "tools_used": json.loads(run.tools_used_json or "[]"),
+                        "execution_time_ms": run.execution_time_ms,
+                        "token_usage": json.loads(run.token_usage_json or "{}"),
                         "created_at": run.created_at,
                     }
                     for run in runs[:20]
                 ],
-                "metrics": {
-                    "total_runs": len(runs),
-                    "completed_runs": sum(1 for run in runs if run.status == "completed"),
-                    "failed_runs": sum(1 for run in runs if run.status == "failed"),
-                },
+                "metrics": AIEmployeeRepository._compute_metrics_from_runs(runs),
             },
             "created_at": employee.created_at,
             "updated_at": employee.updated_at,
         }
 
-    def list(self, organization_id: int):
-        return (
-            self.db.query(AIEmployee)
-            .filter(AIEmployee.organization_id == organization_id)
-            .order_by(AIEmployee.updated_at.desc(), AIEmployee.id.desc())
-            .all()
-        )
+    @staticmethod
+    def _compute_metrics_from_runs(runs: List[AIEmployeeRun]) -> dict:
+        if not runs:
+            return {
+                "total_runs": 0,
+                "successful_runs": 0,
+                "failed_runs": 0,
+                "average_execution_time_ms": None,
+                "last_run_at": None,
+                "most_used_tools": [],
+            }
+        tool_counter: Counter = Counter()
+        execution_times = []
+        for run in runs:
+            for tool in json.loads(run.tools_used_json or "[]"):
+                tool_counter[tool] += 1
+            if run.execution_time_ms is not None:
+                execution_times.append(run.execution_time_ms)
+        completed = sum(1 for run in runs if run.status == "completed")
+        failed = sum(1 for run in runs if run.status == "failed")
+        return {
+            "total_runs": len(runs),
+            "successful_runs": completed,
+            "failed_runs": failed,
+            "average_execution_time_ms": (
+                round(sum(execution_times) / len(execution_times), 1) if execution_times else None
+            ),
+            "last_run_at": runs[0].created_at if runs else None,
+            "most_used_tools": [
+                {"tool": tool, "count": count} for tool, count in tool_counter.most_common(10)
+            ],
+        }
 
-    def get(self, organization_id: int, employee_id: int):
-        return (
+    def list(self, organization_id: int, include_deleted: bool = False):
+        query = (
             self.db.query(AIEmployee)
-            .filter(AIEmployee.organization_id == organization_id, AIEmployee.id == employee_id)
-            .first()
+            .options(joinedload(AIEmployee.department), joinedload(AIEmployee.runs))
+            .filter(AIEmployee.organization_id == organization_id)
         )
+        if not include_deleted:
+            query = query.filter(AIEmployee.is_deleted.is_(False))
+        return query.order_by(AIEmployee.updated_at.desc(), AIEmployee.id.desc()).all()
+
+    def get(self, organization_id: int, employee_id: int, include_deleted: bool = False):
+        query = (
+            self.db.query(AIEmployee)
+            .options(joinedload(AIEmployee.department), joinedload(AIEmployee.runs))
+            .filter(
+                AIEmployee.organization_id == organization_id,
+                AIEmployee.id == employee_id,
+            )
+        )
+        if not include_deleted:
+            query = query.filter(AIEmployee.is_deleted.is_(False))
+        return query.first()
 
     def create(self, organization_id: int, user_id: int, payload: Dict[str, Any]):
         data = payload.get("data", {})
@@ -76,13 +120,14 @@ class AIEmployeeRepository:
             model=data.get("model"),
             instructions=data.get("instructions", ""),
             tools_json=json.dumps(data.get("tools", [])),
+            knowledge_document_ids_json=json.dumps(data.get("knowledge_document_ids", [])),
             status=payload.get("status", "Active"),
-            is_active=payload.get("status", "Active").lower() != "inactive",
+            is_active=payload.get("status", "Active").lower() not in {"inactive", "disabled"},
         )
         self.db.add(employee)
         self.db.commit()
         self.db.refresh(employee)
-        return employee
+        return self.get(organization_id, employee.id)
 
     def update(self, employee: AIEmployee, payload: Dict[str, Any]):
         data = payload.get("data") or {}
@@ -90,7 +135,7 @@ class AIEmployeeRepository:
             employee.name = payload["title"]
         if payload.get("status") is not None:
             employee.status = payload["status"]
-            employee.is_active = payload["status"].lower() != "inactive"
+            employee.is_active = payload["status"].lower() not in {"inactive", "disabled"}
         if "role" in data:
             employee.role = data["role"]
         if "department_id" in data:
@@ -101,9 +146,53 @@ class AIEmployeeRepository:
             employee.instructions = data["instructions"]
         if "tools" in data:
             employee.tools_json = json.dumps(data["tools"])
+        if "knowledge_document_ids" in data:
+            employee.knowledge_document_ids_json = json.dumps(data["knowledge_document_ids"])
         self.db.commit()
         self.db.refresh(employee)
         return employee
+
+    def set_active(self, employee: AIEmployee, active: bool):
+        employee.is_active = active
+        employee.status = "Active" if active else "Inactive"
+        self.db.commit()
+        self.db.refresh(employee)
+        return employee
+
+    def soft_delete(self, employee: AIEmployee):
+        employee.is_deleted = True
+        employee.is_active = False
+        employee.status = "Deleted"
+        employee.deleted_at = datetime.now(timezone.utc)
+        self.db.commit()
+        self.db.refresh(employee)
+        return employee
+
+    def list_runs(self, organization_id: int, employee_id: int, limit: int = 50, offset: int = 0):
+        return (
+            self.db.query(AIEmployeeRun)
+            .filter(
+                AIEmployeeRun.organization_id == organization_id,
+                AIEmployeeRun.employee_id == employee_id,
+            )
+            .order_by(AIEmployeeRun.id.desc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+
+    def serialize_run(self, run: AIEmployeeRun) -> dict:
+        return {
+            "id": run.id,
+            "employee_id": run.employee_id,
+            "task": run.task,
+            "output": run.output,
+            "status": run.status,
+            "tools_used": json.loads(run.tools_used_json or "[]"),
+            "execution_time_ms": run.execution_time_ms,
+            "token_usage": json.loads(run.token_usage_json or "{}"),
+            "created_at": run.created_at,
+        }
 
     def create_run(
         self,
@@ -114,6 +203,8 @@ class AIEmployeeRepository:
         output: str,
         status: str,
         tools_used: List[str],
+        execution_time_ms: Optional[int] = None,
+        token_usage: Optional[Dict[str, Any]] = None,
     ):
         run = AIEmployeeRun(
             organization_id=organization_id,
@@ -123,8 +214,22 @@ class AIEmployeeRepository:
             output=output,
             status=status,
             tools_used_json=json.dumps(tools_used),
+            execution_time_ms=execution_time_ms,
+            token_usage_json=json.dumps(token_usage or {}),
         )
         self.db.add(run)
         self.db.commit()
         self.db.refresh(run)
         return run
+
+    def get_metrics(self, organization_id: int, employee_id: int) -> dict:
+        runs = (
+            self.db.query(AIEmployeeRun)
+            .filter(
+                AIEmployeeRun.organization_id == organization_id,
+                AIEmployeeRun.employee_id == employee_id,
+            )
+            .order_by(AIEmployeeRun.id.desc())
+            .all()
+        )
+        return self._compute_metrics_from_runs(runs)

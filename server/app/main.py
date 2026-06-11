@@ -15,6 +15,8 @@ from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.knowledge_uploads import router as knowledge_uploads_router
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.operations import router as operations_router
+from app.api.v1.ai_employees import router as ai_employees_router
+from app.api.v1.collaboration import router as collaboration_router
 from app.clients.redis_client import get_redis
 
 logging.basicConfig(level=logging.INFO)
@@ -47,6 +49,8 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_uploads_router)
     app.include_router(conversations_router)
     app.include_router(operations_router)
+    app.include_router(ai_employees_router)
+    app.include_router(collaboration_router)
 
     @app.on_event("startup")
     def on_startup():

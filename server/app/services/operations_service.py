@@ -236,7 +236,9 @@ class OperationsService:
                 pass
         queries = self.db.query(KnowledgeQuery).filter(KnowledgeQuery.organization_id == org_id).all()
         topics = Counter(query.question_text for query in queries)
-        employees = self.repo.list(org_id, "ai-employees")
+        ai_employee_service = AIEmployeeService(self.db)
+        employees = ai_employee_service.list(current_user)
+        active_ai_employees = ai_employee_service.count_active(org_id)
         workflows = self.repo.list(org_id, "workflows")
         support = self.repo.list(org_id, "support")
         completed_workflows = sum(item.status.lower() == "completed" for item in workflows)
@@ -245,12 +247,12 @@ class OperationsService:
         result = {
             "summary": {
                 "knowledge_queries": len(queries),
-                "active_ai_employees": sum(item.status.lower() == "active" for item in employees),
+                "active_ai_employees": active_ai_employees,
                 "workflow_completion_rate": round(completed_workflows * 100 / len(workflows), 1) if workflows else 0,
                 "resolved_support_tickets": resolved_tickets,
             },
             "knowledge": {"most_searched_topics": [{"topic": k, "count": v} for k, v in topics.most_common(10)]},
-            "employees": {"total": len(employees), "active": sum(item.status.lower() == "active" for item in employees)},
+            "employees": {"total": len(employees), "active": active_ai_employees},
             "workflows": {"total": len(workflows), "completed": completed_workflows},
             "support": {"total": len(support), "resolved": resolved_tickets, "categories": dict(categories)},
         }

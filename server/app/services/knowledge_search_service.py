@@ -1,4 +1,5 @@
 import json
+from typing import Set
 
 from app.repositories.knowledge_document_chunk_repository import (
     KnowledgeDocumentChunkRepository,
@@ -13,7 +14,7 @@ class KnowledgeSearchService:
         self.chunk_repo = KnowledgeDocumentChunkRepository(db)
         self.query_repo = KnowledgeQueryRepository(db)
 
-    def _score_chunk(self, question_terms: set[str], chunk):
+    def _score_chunk(self, question_terms: Set[str], chunk):
         haystack = f"{chunk.chunk_text} {chunk.section_heading or ''}".lower()
         return sum(1 for term in question_terms if term in haystack)
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { Compass, Search, Loader, FileText, CheckCircle2, Download, BarChart2, BookOpen, Layers } from 'lucide-react';
 
 const SUGGESTED_RESEARCH = [
@@ -8,106 +9,28 @@ const SUGGESTED_RESEARCH = [
   "Identify growth opportunities in healthcare technology."
 ];
 
-const MOCK_RESEARCH_REPORTS = {
-  "Analyze the AI market in India.": `
-# Business Intelligence Report: AI Market in India 2026
-
-## 1. Executive Summary
-The artificial intelligence market in India has hit an inflection point in 2026, driven by massive public-private investments, rapid digitization across SMEs, and a highly skilled software developer base. The local AI ecosystem is expected to reach a market valuation of **$14.5 Billion** by the end of 2026.
-
-## 2. Primary Market Drivers
-* **National AI Program:** Government subsidies and computing capacity centers (AIRAWAT) have lowered entry costs for tech startups.
-* **Enterprise Digitization:** Cloud migrations and LLM integrations across banking, retail, and telecommunication sectors.
-* **Developer Ecosystem:** India accounts for over 20% of global open-source AI project contributors.
-
-## 3. Competitive Landscape
-| Industry Segment | Adoption Rate | Core Players | Growth Bottlenecks |
-| :--- | :--- | :--- | :--- |
-| **FinTech** | Very High (82%) | Paytm, PhonePe, Cred | Security compliance, fraud detection |
-| **Healthcare Tech** | Medium (45%) | Practo, Apollo Digital | Patient data privacy, model validation |
-| **Retail & Logistics** | High (68%) | Flipkart, Reliance Jio | Localized voice search, cost |
-
-## 4. Strategic Recommendations
-1. **Focus on Localization:** Build AI systems that natively support Indic languages (Hindi, Tamil, Telugu) to tap into tier-2 and tier-3 markets.
-2. **Prioritize Edge AI:** Optimize models for low-power mobile devices since mobile browsing dominates the internet landscape in India.
-  `,
-  "Compare our product with competitors.": `
-# Competitor Comparison Matrix: AI Platform vs Industry Leaders
-
-## 1. Product Positioning
-This report evaluates our AI Enterprise Automation Platform against standard enterprise alternatives (UiPath, Microsoft Power Automate, and custom LLM wrapper solutions).
-
-## 2. Comparison Breakdown
-| Capability | Our Platform | UiPath | MS Power Automate |
-| :--- | :--- | :--- | :--- |
-| **AI Employee Studio** | Yes (Custom Prompts & LLM Select) | Limited (Prebuilt bots) | No (Requires Azure AI Studio) |
-| **Multi-Agent Teams** | Yes (Dynamic Timelines) | No | No |
-| **Browser Automation** | Yes (Agent Scrapes Live) | Yes (Static Selectors) | Yes (Desktop flow) |
-| **Voice AI & Calls** | Yes (Soundwave & Search) | No | No |
-| **Unified Inbox** | Yes (Slack, Telegram, Web) | No | Yes (Teams/Outlook) |
-
-## 3. Core Advantages
-* **Specialized Digital Workforce:** Our native support for Multi-Agent Collaboration enables complex tasks that UiPath's standard rule-based triggers cannot accomplish.
-* **Omnichannel Handoff:** Fully integrated Slack/Telegram hubs out-of-the-box reduce support setup times by 80%.
-  `,
-  "Identify growth opportunities in healthcare technology.": `
-# Strategic Growth Targets: Healthcare Tech Opportunities 2026
-
-## 1. Executive Summary
-Healthcare Technology is transitioning from standard telemetry dashboards to active AI-assisted diagnostics, clinical workflow automation, and automated patient guides. We identify key segments with high growth potential and low competitive density.
-
-## 2. Growth Segments
-* **Clinical Documentation Automation:** Relieving doctor fatigue by deploying specialized Documentation Agents to transcribe and draft SOAP notes during patient visits.
-* **Automated FAQ & Policy Verification:** Deploying AI Employees to parse hospital policies and handbook guidelines for insurance reimbursement.
-* **Predictive Appointment Allocation:** Machine learning models that optimize clinical calendar bookings and predict patient cancelation rates.
-
-## 3. Market Valuation Opportunities
-- **Automated SOPs & Compliance:** Estimated market size of $4.2B with a CAGR of +18.4%.
-- **Voice Diagnostic Assisting:** High barrier to entry but exceptional longevity in clinical environments.
-  `
-};
-
 export default function ResearchPage() {
   const [query, setQuery] = useState('');
   const [isRunning, setIsRunning] = useState(false);
   const [progress, setProgress] = useState('');
   const [result, setResult] = useState('');
 
-  const runResearch = (question) => {
+  const runResearch = async (question) => {
     if (!question.trim() || isRunning) return;
 
     setQuery(question);
     setIsRunning(true);
     setResult('');
-    setProgress('Step 1: Initializing RAG search across internal documents and web caches...');
-
-    setTimeout(() => {
-      setProgress('Step 2: Spotting trends and comparing industry data...');
-      
-      setTimeout(() => {
-        setProgress('Step 3: Compiling final executive summary and recommendations...');
-        
-        setTimeout(() => {
-          const report = MOCK_RESEARCH_REPORTS[question] || `
-# Executive Research Summary: ${question}
-
-## 1. Market Overview
-This is a custom-compiled report addressing your research objective. High-confidence sources were consulted.
-
-## 2. Analysis Details
-- **Objective:** Analysis of "${question}"
-- **Methodology:** Semi-structured crawl and comparison across internal documents.
-- **Findings:** Positive trends identified in target sectors, showing a 15% increase in interest.
-
----
-*Generated by the Business Research Hub.*
-          `;
-          setResult(report);
-          setIsRunning(false);
-          setProgress('');
-        }, 1200);
-      }, 1200);
-    }, 1200);
+    setProgress('Researching organizational knowledge and synthesizing findings...');
+    try {
+      const { data } = await operationsAPI.runResearch(question);
+      setResult(data.data.result);
+    } catch {
+      setResult(`# Executive Research Summary\n\n${question}\n\nThe research service is currently unavailable.`);
+    } finally {
+      setIsRunning(false);
+      setProgress('');
+    }
   };
 
   const handleDownload = () => {

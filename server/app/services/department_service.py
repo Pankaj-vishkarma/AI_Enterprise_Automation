@@ -55,6 +55,7 @@ class DepartmentService:
 
     def update_department(
         self,
+        current_user,
         department_id: int,
         name: str,
         description: str | None,
@@ -62,16 +63,31 @@ class DepartmentService:
 
         return self.department_repo.update(
             department_id,
+            current_user.organization_id,
             name,
             description,
         )
 
     def disable_department(
         self,
+        current_user,
         department_id: int,
     ):
 
         return self.department_repo.update_is_active(
             department_id,
+            current_user.organization_id,
             False,
+        )
+
+    def enable_department(
+        self,
+        current_user,
+        department_id: int,
+    ):
+
+        return self.department_repo.update_is_active(
+            department_id,
+            current_user.organization_id,
+            True,
         )

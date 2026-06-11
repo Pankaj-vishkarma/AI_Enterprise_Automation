@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { GitMerge, Play, Send, Loader, FileText, CheckCircle2, User, Bot, ArrowRight, Download } from 'lucide-react';
 
 const PRESET_TEAMS = [
@@ -25,52 +26,6 @@ const PRESET_TEAMS = [
   }
 ];
 
-const MOCK_COLLABORATION_LOGS = [
-  {
-    agent: "Research Agent",
-    status: "Collecting data...",
-    log: "Scraping EV market statistics for 2026. Queried 14 sources including Bloomberg, McKinsey Reports, and CleanTechnica. Retrieved sales metrics, manufacturer battery costs (average $95/kWh), and charging station distributions."
-  },
-  {
-    agent: "Analyst Agent",
-    status: "Spotting trends...",
-    log: "Processing raw data. Key insights identified: 1. Sales volumes grew 28% YoY. 2. Battery pack prices fell below the $100/kWh threshold for the first time. 3. Primary growth bottlenecks are public fast-charging grid capacity and grid integration issues."
-  },
-  {
-    agent: "Writer Agent",
-    status: "Drafting report...",
-    log: "Drafting market analysis sections. Structuring report with: Executive Summary, Market Growth Drivers, Tech Breakthroughs (Solid-State & LFP chemistry), Competitor Landscaping (Tesla, BYD, local OEMs), and Policy Recommendations."
-  },
-  {
-    agent: "Reviewer Agent",
-    status: "Polishing formatting...",
-    log: "Reviewed draft. Corrected spelling in 'LFP chemistry', formatted statistics into responsive markdown tables, added header hierarchies, and verified source citations. Final draft validated for presentation."
-  }
-];
-
-const MOCK_REPORT_MARKDOWN = `
-# Executive Market Report: Electric Vehicles (EV) Trends 2026
-
-## 1. Executive Summary
-The Electric Vehicle market has experienced unprecedented development in the first half of 2026. Advancements in LFP (Lithium Iron Phosphate) and solid-state cell chemistries, combined with critical scaling in production, have driven average battery pack costs down to **$95/kWh**, achieving cost parity with internal combustion engines (ICE) across multiple car segments.
-
-## 2. Key Growth Trends
-* **Battery Cost Parity:** Average cell pack price reached **$95/kWh** (down 12% from 2025).
-* **Grid Innovation:** Smart charging stations and V2G (Vehicle-to-Grid) platforms are helping stabilize charging peaks.
-* **Urban Commuter Demands:** Small and compact micro-EVs are leading sales in high-density European and Asian urban centers.
-
-## 3. Market Share Analysis
-| Region | market Share | Growth Rate (YoY) | Primary Bottlenecks |
-| :--- | :--- | :--- | :--- |
-| **North America** | 22% | +18% | Public DC fast-charging capacity |
-| **Europe** | 34% | +24% | High energy prices, grid load limits |
-| **Asia-Pacific** | 44% | +35% | Rural charging network density |
-
----
-
-*Report prepared collaboratively by: Research Agent, Analyst Agent, Writer Agent, and Reviewer Agent.*
-`;
-
 export default function CollaborationPage() {
   const [selectedTeam, setSelectedTeam] = useState(PRESET_TEAMS[0]);
   const [prompt, setPrompt] = useState('Create a market research report about electric vehicles.');
@@ -78,8 +33,9 @@ export default function CollaborationPage() {
   const [step, setStep] = useState(-1);
   const [logs, setLogs] = useState([]);
   const [isFinished, setIsFinished] = useState(false);
+  const [finalOutput, setFinalOutput] = useState('');
 
-  const startCollaboration = () => {
+  const startCollaboration = async () => {
     if (!prompt.trim() || isRunning) return;
 
     setIsRunning(true);
@@ -87,36 +43,20 @@ export default function CollaborationPage() {
     setLogs([]);
     setStep(0);
 
-    // Simulate Agent Step 0
-    setTimeout(() => {
-      setLogs(prev => [...prev, MOCK_COLLABORATION_LOGS[0]]);
-      setStep(1);
-
-      // Simulate Agent Step 1
-      setTimeout(() => {
-        setLogs(prev => [...prev, MOCK_COLLABORATION_LOGS[1]]);
-        setStep(2);
-
-        // Simulate Agent Step 2
-        setTimeout(() => {
-          setLogs(prev => [...prev, MOCK_COLLABORATION_LOGS[2]]);
-          setStep(3);
-
-          // Simulate Agent Step 3
-          setTimeout(() => {
-            setLogs(prev => [...prev, MOCK_COLLABORATION_LOGS[3]]);
-            setStep(4);
-            setIsRunning(false);
-            setIsFinished(true);
-          }, 1500);
-        }, 1500);
-      }, 1500);
-    }, 1000);
+    try {
+      const { data } = await operationsAPI.runCollaboration(prompt, selectedTeam.id);
+      setLogs(data.data.logs);
+      setFinalOutput(data.data.final_output);
+      setStep(data.data.logs.length);
+      setIsFinished(true);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleDownload = () => {
     const element = document.createElement("a");
-    const file = new Blob([MOCK_REPORT_MARKDOWN], {type: 'text/plain'});
+    const file = new Blob([finalOutput], {type: 'text/plain'});
     element.href = URL.createObjectURL(file);
     element.download = "EV_Market_Research_Report_2026.md";
     document.body.appendChild(element);
@@ -274,30 +214,7 @@ export default function CollaborationPage() {
                       Generated Final Output
                     </h3>
                     <div className="bg-input border border-border rounded-xl p-5 overflow-x-auto text-xs font-mono whitespace-pre-wrap leading-relaxed text-foreground max-h-80 overflow-y-auto">
-                      {selectedTeam.id === "market-research" ? MOCK_REPORT_MARKDOWN : `
-# Software Design Document: User Profile Cache Microservice
-
-## 1. Objective
-Enable ultra-fast user profile access within the organization with under 5ms latency, leveraging Redis.
-
-## 2. Technical Stack
-- **Languages:** Python (FastAPI)
-- **Database:** PostgreSQL (Primary), Redis (Caching layer)
-- **Containerization:** Docker & Docker Compose
-
-## 3. Workflow Diagram
-Client request -> Cache check -> (Hit: return details) -> (Miss: query PostgreSQL -> Save to cache -> Return details)
-
-## 4. Code Sample (Coder Agent)
-\`\`\`python
-@router.get("/user/{user_id}/profile")
-async def get_profile(user_id: int, redis = Depends(get_redis)):
-    cached = await redis.get(f"profile:{user_id}")
-    if cached:
-        return json.loads(cached)
-    # query postgres and populate cache...
-\`\`\`
-                      `}
+                      {finalOutput}
                     </div>
                   </div>
                 )}

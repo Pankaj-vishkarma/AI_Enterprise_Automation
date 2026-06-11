@@ -33,6 +33,7 @@ from app.models.role import Role
 from app.models.team import Team
 from app.models.user import User
 from app.models.user_session import UserSession
+from app.models.operational_record import OperationalRecord
 
 # Alembic Config object
 config = context.config

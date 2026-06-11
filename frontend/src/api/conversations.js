@@ -23,5 +23,5 @@ export const conversationsAPI = {
     client.post(`/api/v1/conversations/${id}/messages`, data),
 
   search: (query, params) =>
-    client.get(`/api/v1/conversations/search?q=${query}`, { params }),
+    client.get('/api/v1/conversations', { params: { ...params, q: query } }),
 };

@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.models.user import User
@@ -14,7 +16,7 @@ class UserRepository:
     def create(
         self,
         first_name: str,
-        last_name: str | None,
+        last_name: Optional[str],
         email: str,
         password_hash: str,
         organization_id: int,
@@ -53,7 +55,7 @@ class UserRepository:
     def list_by_organization_and_roles(
         self,
         organization_id: int,
-        role_ids: list[int],
+        role_ids: List[int],
     ):
         return (
             self.db.query(User)
@@ -100,7 +102,7 @@ class UserRepository:
         self,
         user_id: int,
         first_name: str,
-        last_name: str | None,
+        last_name: Optional[str],
         email: str,
     ):
         user = self.get_by_id(user_id)
@@ -120,7 +122,7 @@ class UserRepository:
     def update_department_id(
         self,
         user_id: int,
-        department_id: int | None,
+        department_id: Optional[int],
     ):
         user = self.get_by_id(user_id)
 
@@ -137,7 +139,7 @@ class UserRepository:
     def update_team_id(
         self,
         user_id: int,
-        team_id: int | None,
+        team_id: Optional[int],
     ):
         user = self.get_by_id(user_id)
 

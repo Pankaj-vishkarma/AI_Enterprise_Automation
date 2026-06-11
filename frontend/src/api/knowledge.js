@@ -44,4 +44,7 @@ export const knowledgeAPI = {
   // Statistics
   getStatistics: () =>
     client.get('/api/v1/knowledge/statistics'),
+
+  retryIngest: (id) =>
+    client.post(`/api/v1/knowledge/documents/${id}/retry-ingest`),
 };

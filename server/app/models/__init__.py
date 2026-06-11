@@ -12,3 +12,6 @@ from .user_session import UserSession
 from .department import Department
 from .conversation import Conversation
 from .conversation_message import ConversationMessage
+from .operational_record import OperationalRecord
+from .ai_employee import AIEmployee
+from .ai_employee_run import AIEmployeeRun

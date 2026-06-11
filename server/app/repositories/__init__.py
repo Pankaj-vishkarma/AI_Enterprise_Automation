@@ -3,3 +3,4 @@
 from .knowledge_document_chunk_repository import KnowledgeDocumentChunkRepository
 from .knowledge_document_repository import KnowledgeDocumentRepository
 from .knowledge_query_repository import KnowledgeQueryRepository
+from .ai_employee_repository import AIEmployeeRepository

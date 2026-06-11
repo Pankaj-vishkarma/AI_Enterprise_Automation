@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { MessageCircle, Globe, Send, User, Bot, AlertTriangle, ShieldCheck, Check, Sparkles, Sliders } from 'lucide-react';
 
 // Custom icons or text tags for channel types:
@@ -67,6 +68,15 @@ export default function OmnichannelPage() {
   const [activeConv, setActiveConv] = useState(INITIAL_CONVERSATIONS[0]);
   const [inputText, setInputText] = useState('');
 
+  useEffect(() => {
+    operationsAPI.list('omnichannel').then(({ data }) => {
+      if (!data.length) return;
+      const loaded = data.map(item => ({ id: item.id, name: item.title, status: item.status, ...item.data }));
+      setConversations(loaded);
+      setActiveConv(loaded[0]);
+    }).catch(() => {});
+  }, []);
+
   const channelIcon = (channel) => {
     switch (channel) {
       case "Website Chat": return <Globe className="text-blue-500" size={14} />;
@@ -99,6 +109,9 @@ export default function OmnichannelPage() {
 
     // Update in list
     setConversations(prev => prev.map(c => c.id === activeConv.id ? updatedConv : c));
+    operationsAPI.update('omnichannel', activeConv.id, {
+      data: { messages: updatedConv.messages, lastMessage: text, time: "Just now" }
+    }).catch(() => {});
   };
 
   const handleApproveReply = () => {
@@ -112,17 +125,7 @@ export default function OmnichannelPage() {
     
     setActiveConv(updatedConv);
     setConversations(prev => prev.map(c => c.id === activeConv.id ? updatedConv : c));
-  };
-
-  const simulateIncomingReply = () => {
-    const responses = [
-      "Wait, that doesn't answer my question. Can I speak to a manager?",
-      "Perfect, thank you! That is exactly what I was looking for.",
-      "Are there any hidden service charges for that?",
-      "Let me review this policy and get back to you shortly."
-    ];
-    const randomReply = responses[Math.floor(Math.random() * responses.length)];
-    handleSendMessage(randomReply, "user");
+    operationsAPI.update('omnichannel', activeConv.id, { status: newStatus }).catch(() => {});
   };
 
   return (
@@ -202,12 +205,6 @@ export default function OmnichannelPage() {
                     }`}
                   >
                     {activeConv.status === "Human Active" ? 'Human Operator Active' : 'Delegate to Human'}
-                  </button>
-                  <button 
-                    onClick={simulateIncomingReply}
-                    className="px-2.5 py-1 bg-secondary border border-border hover:bg-secondary/80 text-foreground rounded-lg text-[10px] font-bold cursor-pointer transition"
-                  >
-                    Simulate Client Reply
                   </button>
                 </div>
               </div>

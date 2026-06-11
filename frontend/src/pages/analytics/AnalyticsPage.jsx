@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { BarChart3, Download, Sparkles, BookOpen, Bot, Layers, LifeBuoy, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, employees, workflows, support
+  const [analytics, setAnalytics] = useState(null);
+
+  useEffect(() => {
+    operationsAPI.analytics().then(({ data }) => setAnalytics(data)).catch(() => {});
+  }, []);
 
   const handleExport = (reportType) => {
     let reportContent = `
@@ -64,10 +70,10 @@ Detailed metrics regarding ${reportType.toLowerCase()} have been processed. Syst
         {/* Top KPI row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { title: "Knowledge Queries", value: "3,892", icon: BookOpen, color: "text-blue-600 bg-blue-50 border-blue-100", label: "+14% this week" },
-            { title: "Active AI Employees", value: "8 Active", icon: Bot, color: "text-purple-600 bg-purple-50 border-purple-100", label: "2 created recently" },
-            { title: "Workflow Throughput", value: "92.4%", icon: Layers, color: "text-green-600 bg-green-50 border-green-100", label: "-0.5d avg duration" },
-            { title: "Customer CSAT", value: "4.82 / 5.0", icon: LifeBuoy, color: "text-amber-600 bg-amber-50 border-amber-100", label: "98 tickets resolved" }
+            { title: "Knowledge Queries", value: analytics?.summary.knowledge_queries ?? "0", icon: BookOpen, color: "text-blue-600 bg-blue-50 border-blue-100", label: "organization total" },
+            { title: "Active AI Employees", value: `${analytics?.summary.active_ai_employees ?? 0} Active`, icon: Bot, color: "text-purple-600 bg-purple-50 border-purple-100", label: "currently deployed" },
+            { title: "Workflow Throughput", value: `${analytics?.summary.workflow_completion_rate ?? 0}%`, icon: Layers, color: "text-green-600 bg-green-50 border-green-100", label: "completion rate" },
+            { title: "Resolved Tickets", value: analytics?.summary.resolved_support_tickets ?? "0", icon: LifeBuoy, color: "text-amber-600 bg-amber-50 border-amber-100", label: "organization total" }
           ].map((kpi, idx) => (
             <div key={idx} className="bg-card border border-border rounded-xl p-5 space-y-3 shadow-sm">
               <div className="flex justify-between items-center">

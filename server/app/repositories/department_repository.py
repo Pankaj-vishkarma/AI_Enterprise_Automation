@@ -26,8 +26,11 @@ class DepartmentRepository:
 
         return department
 
-    def get_by_id(self, department_id: int):
-        return self.db.query(Department).filter(Department.id == department_id).first()
+    def get_by_id(self, department_id: int, organization_id: int | None = None):
+        query = self.db.query(Department).filter(Department.id == department_id)
+        if organization_id is not None:
+            query = query.filter(Department.organization_id == organization_id)
+        return query.first()
 
     def get_by_name(
         self,
@@ -57,10 +60,11 @@ class DepartmentRepository:
     def update(
         self,
         department_id: int,
+        organization_id: int,
         name: str,
         description: str | None,
     ):
-        department = self.get_by_id(department_id)
+        department = self.get_by_id(department_id, organization_id)
 
         if not department:
             return None
@@ -76,9 +80,10 @@ class DepartmentRepository:
     def update_is_active(
         self,
         department_id: int,
+        organization_id: int,
         is_active: bool,
     ):
-        department = self.get_by_id(department_id)
+        department = self.get_by_id(department_id, organization_id)
 
         if not department:
             return None

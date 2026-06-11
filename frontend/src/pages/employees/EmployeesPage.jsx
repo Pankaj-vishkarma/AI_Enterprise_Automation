@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { Plus, Bot, UserCheck, MessageSquare, Briefcase, Settings, X, PlusCircle, CheckCircle2 } from 'lucide-react';
 
 const DEFAULT_EMPLOYEES = [
@@ -74,6 +75,12 @@ export default function EmployeesPage() {
 
   const toolsList = ["Web Search", "File Reader", "Code Interpreter", "Database Access", "CRM Connector", "Doc Generator"];
 
+  useEffect(() => {
+    operationsAPI.list('ai-employees').then(({ data }) => {
+      if (data.length) setEmployees(data.map(item => ({ id: item.id, name: item.title, status: item.status, ...item.data })));
+    }).catch(() => {});
+  }, []);
+
   const handleToolToggle = (tool) => {
     if (selectedTools.includes(tool)) {
       setSelectedTools(selectedTools.filter(t => t !== tool));
@@ -82,22 +89,16 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleCreate = (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const newEmp = {
-      id: Date.now(),
-      name,
-      role,
-      department,
-      model,
+    const { data: saved } = await operationsAPI.create('ai-employees', {
+      title: name,
       status: "Active",
-      instructions,
-      tools: selectedTools,
-      color: "bg-indigo-100 text-indigo-700 border-indigo-200"
-    };
-
+      data: { role, department, model, instructions, tools: selectedTools, color: "bg-indigo-100 text-indigo-700 border-indigo-200" }
+    });
+    const newEmp = { id: saved.id, name: saved.title, status: saved.status, ...saved.data };
     setEmployees([...employees, newEmp]);
     setIsModalOpen(false);
 
@@ -106,6 +107,13 @@ export default function EmployeesPage() {
     setRole('Assistant');
     setInstructions('');
     setSelectedTools([]);
+  };
+
+  const runEmployee = async (employee) => {
+    const task = window.prompt(`Assign a task to ${employee.name}`);
+    if (!task?.trim()) return;
+    const { data } = await operationsAPI.runAIEmployee(employee.id, task);
+    window.alert(data.output);
   };
 
   return (
@@ -177,7 +185,9 @@ export default function EmployeesPage() {
                   <Settings size={12} />
                   Model: {emp.model}
                 </span>
-                <span>ID: #{emp.id}</span>
+                <button onClick={() => runEmployee(emp)} className="text-primary font-semibold hover:underline">
+                  Assign Task
+                </button>
               </div>
             </div>
           ))}

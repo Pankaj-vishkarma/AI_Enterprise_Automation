@@ -6,6 +6,9 @@ class ManagedUserCreate(BaseModel):
     last_name: str | None = None
     email: EmailStr
     password: str
+    role_id: int | None = None
+    department_id: int | None = None
+    team_id: int | None = None
 
 
 class UserOut(BaseModel):
@@ -15,6 +18,8 @@ class UserOut(BaseModel):
     email: EmailStr
     organization_id: int
     role_id: int
+    department_id: int | None = None
+    team_id: int | None = None
     is_active: bool
 
     class Config:

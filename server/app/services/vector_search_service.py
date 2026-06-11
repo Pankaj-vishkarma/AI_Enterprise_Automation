@@ -1,5 +1,5 @@
 import numpy as np
-from typing import Tuple
+from typing import List, Tuple
 
 from app.repositories.knowledge_document_chunk_repository import (
     KnowledgeDocumentChunkRepository,
@@ -24,8 +24,8 @@ class VectorSearchService:
         return float(np.dot(a, b) / (na * nb))
 
     def search(
-        self, organization_id: int, query_vector: list[float], top_k: int = 5
-    ) -> list[Tuple[float, object]]:
+        self, organization_id: int, query_vector: List[float], top_k: int = 5
+    ) -> List[Tuple[float, object]]:
         # try cache
         redis = get_redis()
         qhash = hashlib.sha256((str(query_vector) + str(top_k)).encode()).hexdigest()

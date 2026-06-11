@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
@@ -29,7 +31,7 @@ def create_conversation(
     return conv
 
 
-@router.get("", response_model=list[ConversationResponse])
+@router.get("", response_model=List[ConversationResponse])
 def list_conversations(
     current_user=Depends(require_permission(KNOWLEDGE_VIEW_PERMISSION)),
     db: Session = Depends(get_db),
@@ -84,7 +86,7 @@ def post_message(
     return msg
 
 
-@router.get("/{conversation_id}/messages", response_model=list[MessageResponse])
+@router.get("/{conversation_id}/messages", response_model=List[MessageResponse])
 def list_messages(
     conversation_id: int,
     current_user=Depends(require_permission(KNOWLEDGE_VIEW_PERMISSION)),

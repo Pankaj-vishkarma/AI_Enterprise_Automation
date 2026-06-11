@@ -14,7 +14,7 @@ export const departmentsAPI = {
     client.patch(`/api/v1/departments/${id}`, data),
 
   delete: (id) =>
-    client.delete(`/api/v1/departments/${id}`),
+    client.patch(`/api/v1/departments/${id}/disable`),
 
   disable: (id) =>
     client.patch(`/api/v1/departments/${id}/disable`),
@@ -23,5 +23,5 @@ export const departmentsAPI = {
     client.patch(`/api/v1/departments/${id}/enable`),
 
   search: (query, params) =>
-    client.get(`/api/v1/departments/search?q=${query}`, { params }),
+    client.get('/api/v1/departments', { params: { ...params, q: query } }),
 };

@@ -114,3 +114,26 @@ class TeamService:
             team_id,
             False,
         )
+
+    def enable_team(
+        self,
+        current_user,
+        team_id: int,
+    ):
+        team = self.team_repo.get_by_id(team_id)
+
+        if not team:
+            return None
+
+        role_name = current_user.role.name if current_user.role else None
+
+        if (
+            role_name != SUPER_ADMIN_ROLE
+            and team.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization team management is not allowed")
+
+        return self.team_repo.update_is_active(
+            team_id,
+            True,
+        )

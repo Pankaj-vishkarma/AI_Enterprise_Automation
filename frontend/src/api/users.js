@@ -14,7 +14,7 @@ export const usersAPI = {
     client.patch(`/api/v1/users/${id}`, data),
 
   delete: (id) =>
-    client.delete(`/api/v1/users/${id}`),
+    client.patch(`/api/v1/users/${id}/disable`),
 
   disable: (id) =>
     client.patch(`/api/v1/users/${id}/disable`),
@@ -32,5 +32,5 @@ export const usersAPI = {
     client.patch(`/api/v1/users/${id}/role`, { role_id: roleId }),
 
   search: (query, params) =>
-    client.get(`/api/v1/users/search?q=${query}`, { params }),
+    client.get('/api/v1/users', { params: { ...params, q: query } }),
 };

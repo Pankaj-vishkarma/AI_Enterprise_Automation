@@ -14,7 +14,7 @@ export const teamsAPI = {
     client.patch(`/api/v1/teams/${id}`, data),
 
   delete: (id) =>
-    client.delete(`/api/v1/teams/${id}`),
+    client.patch(`/api/v1/teams/${id}/disable`),
 
   disable: (id) =>
     client.patch(`/api/v1/teams/${id}/disable`),
@@ -22,12 +22,6 @@ export const teamsAPI = {
   enable: (id) =>
     client.patch(`/api/v1/teams/${id}/enable`),
 
-  addMember: (id, userId) =>
-    client.post(`/api/v1/teams/${id}/add-member`, { userId }),
-
-  removeMember: (id, userId) =>
-    client.post(`/api/v1/teams/${id}/remove-member`, { userId }),
-
   search: (query, params) =>
-    client.get(`/api/v1/teams/search?q=${query}`, { params }),
+    client.get('/api/v1/teams', { params: { ...params, q: query } }),
 };

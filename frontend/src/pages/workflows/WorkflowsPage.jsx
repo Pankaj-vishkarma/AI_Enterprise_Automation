@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { Layers, Plus, CheckCircle2, Clock, AlertCircle, X, ChevronRight, UserPlus, Play } from 'lucide-react';
 
 const INITIAL_WORKFLOWS = [
@@ -52,22 +53,26 @@ export default function WorkflowsPage() {
   const [step2, setStep2] = useState('Step 2: Manager Sign-off');
   const [step3, setStep3] = useState('Step 3: Finance Release');
 
-  const handleCreate = (e) => {
+  useEffect(() => {
+    operationsAPI.list('workflows').then(({ data }) => {
+      if (data.length) setWorkflows(data.map(item => ({ id: item.id, name: item.title, status: item.status, ...item.data })));
+    }).catch(() => {});
+  }, []);
+
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
 
-    const newWf = {
-      id: Date.now(),
-      name,
-      type,
-      progress: 0,
-      status: "Active",
+    const workflowData = {
+      type, progress: 0,
       steps: [
         { name: step1, assignee: "Emma (HR)", status: "Pending" },
         { name: step2, assignee: "Manager Team", status: "Upcoming" },
         { name: step3, assignee: "Finance Team", status: "Upcoming" }
       ]
     };
+    const { data: saved } = await operationsAPI.create('workflows', { title: name, status: "Active", data: workflowData });
+    const newWf = { id: saved.id, name: saved.title, status: saved.status, ...saved.data };
 
     setWorkflows([newWf, ...workflows]);
     setIsModalOpen(false);
@@ -97,12 +102,14 @@ export default function WorkflowsPage() {
       const progress = Math.round((approvedCount / updatedSteps.length) * 100);
       const status = progress === 100 ? "Completed" : wf.status;
 
-      return {
+      const updated = {
         ...wf,
         steps: updatedSteps,
         progress,
         status
       };
+      operationsAPI.update('workflows', wfId, { status, data: { steps: updatedSteps, progress } }).catch(() => {});
+      return updated;
     }));
   };
 

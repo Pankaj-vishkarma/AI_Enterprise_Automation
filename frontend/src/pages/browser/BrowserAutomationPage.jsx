@@ -1,61 +1,35 @@
 import React, { useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { Globe, Play, Loader, CheckCircle2, Terminal, Table, Download, Search, RefreshCw } from 'lucide-react';
-
-const MOCK_CONSOLE_LOGS = [
-  "INFO: Initializing Headless Chromium browser context...",
-  "INFO: Setting viewport to 1280x800, mimicking standard desktop...",
-  "INFO: Navigating to target URL: https://www.linkedin.com/jobs/search?keywords=React%20Developer",
-  "INFO: Waiting for selector '.jobs-search-results-list' to mount (Timeout 15s)...",
-  "SUCCESS: Target element loaded. Detected 45 search result nodes.",
-  "INFO: Iterating job card listings to extract structural content...",
-  "INFO: [Node 1] Extracted 'Senior React Engineer' at 'Vercel' ($150k - $190k).",
-  "INFO: [Node 2] Extracted 'Frontend Developer' at 'Stripe' ($130k - $160k).",
-  "INFO: [Node 3] Extracted 'React Architect' at 'Supabase' ($160k - $210k).",
-  "INFO: [Node 4] Extracted 'Software Engineer II' at 'Linear' ($140k - $175k).",
-  "INFO: [Node 5] Extracted 'Staff UI Engineer' at 'Figma' ($180k - $230k).",
-  "INFO: Scrolling container to trigger infinite scroll load...",
-  "SUCCESS: Scraped 20 target records successfully.",
-  "INFO: Generating final CSV payload and writing to workspace uploads...",
-  "SUCCESS: Browser automation complete. Task terminated cleanly."
-];
-
-const MOCK_JOBS_RESULTS = [
-  { id: 1, title: "Senior React Engineer", company: "Vercel", location: "Remote (US)", salary: "$150,000 - $190,000", posted: "1 day ago" },
-  { id: 2, title: "Frontend Developer", company: "Stripe", location: "San Francisco, CA", salary: "$130,000 - $160,000", posted: "2 days ago" },
-  { id: 3, title: "React Architect", company: "Supabase", location: "Remote (Global)", salary: "$160,000 - $210,000", posted: "3 days ago" },
-  { id: 4, title: "Software Engineer II", company: "Linear", location: "Remote", salary: "$140,000 - $175,000", posted: "5 days ago" },
-  { id: 5, title: "Staff UI Engineer", company: "Figma", location: "San Francisco, CA", salary: "$180,000 - $230,000", posted: "1 week ago" }
-];
 
 export default function BrowserAutomationPage() {
   const [instruction, setInstruction] = useState('Find the top 20 React Developer jobs and create a report.');
   const [isRunning, setIsRunning] = useState(false);
   const [terminalLogs, setTerminalLogs] = useState([]);
   const [showTable, setShowTable] = useState(false);
+  const [results, setResults] = useState([]);
 
-  const startAutomation = () => {
+  const startAutomation = async () => {
     if (!instruction.trim() || isRunning) return;
 
     setIsRunning(true);
     setShowTable(false);
     setTerminalLogs([]);
 
-    // Stream logs to terminal mock
-    MOCK_CONSOLE_LOGS.forEach((log, index) => {
-      setTimeout(() => {
-        setTerminalLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${log}`]);
-        if (index === MOCK_CONSOLE_LOGS.length - 1) {
-          setIsRunning(false);
-          setShowTable(true);
-        }
-      }, index * 400);
-    });
+    try {
+      const { data } = await operationsAPI.runBrowserTask(instruction);
+      setTerminalLogs(data.data.result.split('\n'));
+      setResults(data.data.results || []);
+      setShowTable((data.data.results || []).length > 0);
+    } finally {
+      setIsRunning(false);
+    }
   };
 
   const handleDownload = () => {
     let csvContent = "data:text/csv;charset=utf-8,ID,Job Title,Company,Location,Salary,Posted\n";
-    MOCK_JOBS_RESULTS.forEach(j => {
+    results.forEach(j => {
       csvContent += `${j.id},"${j.title}","${j.company}","${j.location}","${j.salary}","${j.posted}"\n`;
     });
     const encodedUri = encodeURI(csvContent);
@@ -106,7 +80,7 @@ export default function BrowserAutomationPage() {
 
         {/* Display Simulator Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Mock Console Log Terminal */}
+          {/* Browser execution report */}
           <div className="lg:col-span-1 bg-[#0f172a] text-green-400 border border-slate-800 rounded-xl p-5 shadow-inner h-[400px] overflow-hidden flex flex-col font-mono text-xs">
             <div className="flex justify-between items-center border-b border-slate-800 pb-2 mb-3 text-slate-400 font-sans">
               <span className="flex items-center gap-1.5 font-bold">
@@ -175,7 +149,7 @@ export default function BrowserAutomationPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {MOCK_JOBS_RESULTS.map(job => (
+                      {results.map(job => (
                         <tr key={job.id} className="border-b border-border hover:bg-secondary/40 text-foreground font-medium">
                           <td className="p-3 font-semibold text-primary">{job.title}</td>
                           <td className="p-3">{job.company}</td>

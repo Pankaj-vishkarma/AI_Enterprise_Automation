@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -16,7 +18,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[TeamResponse])
+@router.get("", response_model=List[TeamResponse])
 def list_teams(
     current_user=Depends(require_permission(VIEW_TEAMS_PERMISSION)),
     db: Session = Depends(get_db),
@@ -119,6 +121,31 @@ def disable_team(
 
     try:
         team = service.disable_team(current_user, team_id)
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Team not found",
+        )
+
+    return team
+
+
+@router.patch("/{team_id}/enable", response_model=TeamResponse)
+def enable_team(
+    team_id: int,
+    current_user=Depends(require_permission(MANAGE_TEAMS_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    service = TeamService(db)
+
+    try:
+        team = service.enable_team(current_user, team_id)
     except PermissionError as exc:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

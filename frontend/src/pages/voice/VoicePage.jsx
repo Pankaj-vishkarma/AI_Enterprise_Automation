@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { Mic, MicOff, Loader, MessageSquare, Volume2, Sparkles, AlertCircle, Play } from 'lucide-react';
 
 const VOICE_EXCHANGES = {
@@ -22,12 +23,14 @@ export default function VoicePage() {
   const [status, setStatus] = useState('Offline'); // Offline, Connecting, Listening, Thinking, Speaking
   const [conversations, setConversations] = useState([]);
   const [isMuted, setIsMuted] = useState(false);
+  const recognitionRef = useRef(null);
 
   const toggleSession = () => {
     if (isActive) {
       setIsActive(false);
       setStatus('Offline');
       setConversations([]);
+      recognitionRef.current?.stop();
     } else {
       setIsActive(true);
       setStatus('Connecting');
@@ -36,31 +39,36 @@ export default function VoicePage() {
         setConversations([
           { type: 'ai', text: "Voice Assistant connected. I have access to your organization's knowledge base. What can I help you with?" }
         ]);
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SpeechRecognition) {
+          const recognition = new SpeechRecognition();
+          recognition.continuous = true;
+          recognition.onresult = (event) => submitVoiceQuery(event.results[event.results.length - 1][0].transcript);
+          recognition.start();
+          recognitionRef.current = recognition;
+        }
       }, 1000);
     }
   };
 
-  const simulateSpeechInput = (queryText) => {
-    if (!isActive || status !== 'Listening') return;
+  const submitVoiceQuery = async (queryText) => {
+    if (!queryText.trim()) return;
 
     // Set status to user speaking / AI thinking
     setStatus('Thinking');
     setConversations(prev => [...prev, { type: 'user', text: queryText }]);
 
-    setTimeout(() => {
+    try {
+      const { data } = await operationsAPI.voiceQuery(queryText);
       setStatus('Speaking');
-      const answer = VOICE_EXCHANGES[queryText] || {
-        user: queryText,
-        ai: "I've searched the database regarding your request but could not find a matching policy. Let me search the web or route to a human colleague."
-      };
-
-      setConversations(prev => [...prev, { type: 'ai', text: answer.ai }]);
-
-      // Set back to listening after 3 seconds of speaking simulation
-      setTimeout(() => {
-        setStatus('Listening');
-      }, 3500);
-    }, 1200);
+      setConversations(prev => [...prev, { type: 'ai', text: data.data.answer }]);
+      if (!isMuted && window.speechSynthesis) window.speechSynthesis.speak(new SpeechSynthesisUtterance(data.data.answer));
+    } catch {
+      const answer = VOICE_EXCHANGES[queryText]?.ai || "I could not find enough organizational knowledge to answer that.";
+      setConversations(prev => [...prev, { type: 'ai', text: answer }]);
+    } finally {
+      setTimeout(() => setStatus('Listening'), 1500);
+    }
   };
 
   return (
@@ -195,13 +203,13 @@ export default function VoicePage() {
               <div className="pt-4 border-t border-border mt-4">
                 <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
                   <Sparkles size={11} className="text-primary" />
-                  Simulate Saying a Command
+                  Suggested Voice Commands
                 </p>
                 <div className="flex flex-col gap-1.5">
                   {Object.keys(VOICE_EXCHANGES).map((cmd) => (
                     <button
                       key={cmd}
-                      onClick={() => simulateSpeechInput(cmd)}
+                      onClick={() => submitVoiceQuery(cmd)}
                       className="text-left text-xs p-2 bg-secondary/50 border border-border hover:border-primary/50 hover:bg-secondary rounded-lg transition text-foreground cursor-pointer flex items-center justify-between"
                     >
                       <span>"{cmd}"</span>

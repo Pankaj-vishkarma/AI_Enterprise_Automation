@@ -1,3 +1,5 @@
+from typing import List
+
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import joinedload
 
@@ -45,7 +47,28 @@ class RoleRepository:
 
         return role
 
-    def set_permissions(self, role_id: int, permissions: list[Permission]):
+    def update(self, role_id: int, name: str):
+        role = self.get_by_id(role_id)
+
+        if not role:
+            return None
+
+        role.name = name
+        self.db.commit()
+        self.db.refresh(role)
+        return role
+
+    def delete(self, role_id: int):
+        role = self.get_by_id(role_id)
+
+        if not role:
+            return None
+
+        self.db.delete(role)
+        self.db.commit()
+        return role
+
+    def set_permissions(self, role_id: int, permissions: List[Permission]):
         role = self.get_by_id(role_id)
 
         if not role:

@@ -75,6 +75,47 @@ class UserService:
             role_id=role.id,
         )
 
+    def create_user_with_role(
+        self,
+        current_user,
+        *,
+        first_name: str,
+        last_name: str | None,
+        email: str,
+        password: str,
+        role_id: int,
+        department_id: int | None = None,
+        team_id: int | None = None,
+    ):
+        current_role = current_user.role.name if current_user.role else None
+        if current_role not in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
+            raise PermissionError("SUPER_ADMIN or ORG_ADMIN access required")
+
+        role = self.role_repo.get_by_id(role_id)
+        if not role:
+            raise ValueError("Role not found")
+        if role.name == SUPER_ADMIN_ROLE and current_role != SUPER_ADMIN_ROLE:
+            raise PermissionError("Only SUPER_ADMIN can create SUPER_ADMIN users")
+
+        user = self.create_user_for_org(
+            organization_id=current_user.organization_id,
+            role_name=role.name,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password=password,
+        )
+
+        if department_id is not None:
+            user = self.assign_user_to_department(current_user, user.id, department_id)
+            if not user:
+                raise ValueError("Department not found")
+        if team_id is not None:
+            user = self.assign_user_to_team(current_user, user.id, team_id)
+            if not user:
+                raise ValueError("Team not found")
+        return user
+
     def disable_user(self, current_user, target_user_id: int):
         target_user = self.user_repo.get_by_id(target_user_id)
 

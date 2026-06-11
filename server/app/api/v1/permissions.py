@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -22,7 +24,7 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=list[PermissionResponse])
+@router.get("", response_model=List[PermissionResponse])
 def list_permissions(
     current_user=Depends(require_permission(VIEW_PERMISSIONS_PERMISSION)),
     db: Session = Depends(get_db),

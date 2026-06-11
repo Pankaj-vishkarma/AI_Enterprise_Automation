@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { knowledgeAPI } from '../../api/knowledge';
-import { Plus, Search, Upload, Trash2, X, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Search, Upload, Trash2, X, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 const SUPPORTED_TYPES = [
   "Employee Handbooks",
@@ -69,6 +69,16 @@ export default function DocumentsPage() {
     },
     onError: (err) => {
       alert(err.response?.data?.detail || 'Failed to delete document.');
+    }
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: (id) => knowledgeAPI.retryIngest(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+    },
+    onError: (err) => {
+      alert(err.response?.data?.detail || 'Failed to retry ingestion.');
     }
   });
 
@@ -166,6 +176,7 @@ export default function DocumentsPage() {
                     <button 
                       onClick={() => handleDelete(doc.id)}
                       className="text-destructive hover:bg-red-50 p-2 rounded-lg transition cursor-pointer"
+                      title="Disable document"
                     >
                       <Trash2 size={18} />
                     </button>
@@ -189,7 +200,18 @@ export default function DocumentsPage() {
 
                 <div className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground flex justify-between items-center">
                   <span>ID: #{doc.id}</span>
-                  <span>Active: {doc.is_active ? 'Yes' : 'No'}</span>
+                  <div className="flex items-center gap-2">
+                    {doc.status === 'failed' && (
+                      <button
+                        onClick={() => retryMutation.mutate(doc.id)}
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        <RefreshCw size={12} />
+                        Retry
+                      </button>
+                    )}
+                    <span>Active: {doc.is_active ? 'Yes' : 'No'}</span>
+                  </div>
                 </div>
               </div>
             ))

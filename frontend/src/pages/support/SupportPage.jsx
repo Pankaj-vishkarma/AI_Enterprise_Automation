@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import { operationsAPI } from '../../api/operations';
 import { LifeBuoy, Plus, Sparkles, MessageCircle, AlertTriangle, ArrowRight, X, Heart, Meh, Frown, CheckCircle } from 'lucide-react';
 
 const INITIAL_TICKETS = [
@@ -49,6 +50,12 @@ export default function SupportPage() {
   const [category, setCategory] = useState('Billing Issues');
   const [message, setMessage] = useState('');
 
+  useEffect(() => {
+    operationsAPI.list('support').then(({ data }) => {
+      if (data.length) setTickets(data.map(item => ({ id: item.id, title: item.title, status: item.status, ...item.data })));
+    }).catch(() => {});
+  }, []);
+
   const sentimentIcon = (sentiment) => {
     switch (sentiment) {
       case "Positive": return <Heart className="text-green-600 fill-green-100" size={14} />;
@@ -58,30 +65,14 @@ export default function SupportPage() {
     }
   };
 
-  const handleCreateTicket = (e) => {
+  const handleCreateTicket = async (e) => {
     e.preventDefault();
     if (!title.trim() || !customer.trim()) return;
 
-    // Detect mock sentiment
-    let sentiment = "Neutral";
-    if (message.toLowerCase().includes("bad") || message.toLowerCase().includes("fail") || message.toLowerCase().includes("error") || message.toLowerCase().includes("broken")) {
-      sentiment = "Negative";
-    } else if (message.toLowerCase().includes("love") || message.toLowerCase().includes("great") || message.toLowerCase().includes("help")) {
-      sentiment = "Positive";
-    }
-
-    const newTicket = {
-      id: `TCK-${Math.floor(1000 + Math.random() * 9000)}`,
-      title,
-      customer,
-      category,
-      sentiment,
-      status: "New",
-      escalated: false,
-      message,
-      aiRecommendation: `Hello, thank you for reaching out regarding your ${category.toLowerCase()}. Based on your query about "${title}", our AI support agent recommends checking your account configuration settings or looking at our FAQ section. Let us know if you need human escalation.`
-    };
-
+    const { data: saved } = await operationsAPI.create('support', {
+      title, status: "New", data: { customer, category, escalated: false, message }
+    });
+    const newTicket = { id: saved.id, title: saved.title, status: saved.status, ...saved.data };
     setTickets([...tickets, newTicket]);
     setIsCreateOpen(false);
 
@@ -93,6 +84,7 @@ export default function SupportPage() {
   };
 
   const handleMoveStatus = (ticketId, newStatus) => {
+    operationsAPI.update('support', ticketId, { status: newStatus }).catch(() => {});
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         const updated = { ...t, status: newStatus };
@@ -106,6 +98,7 @@ export default function SupportPage() {
   };
 
   const handleEscalate = (ticketId) => {
+    operationsAPI.update('support', ticketId, { data: { escalated: true } }).catch(() => {});
     setTickets(prev => prev.map(t => {
       if (t.id === ticketId) {
         const updated = { ...t, escalated: true };

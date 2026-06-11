@@ -1,7 +1,8 @@
 import math
+from typing import Dict, List
 
 
-def chunk_text(text: str, max_tokens: int = 200, overlap: int = 50) -> list[dict]:
+def chunk_text(text: str, max_tokens: int = 200, overlap: int = 50) -> List[Dict]:
     words = text.split()
     chunks = []
     if not words:

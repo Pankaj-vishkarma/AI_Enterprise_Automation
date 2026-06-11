@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.models.permission import Permission
@@ -11,7 +13,7 @@ class PermissionRepository:
     def create(
         self,
         name: str,
-        description: str | None,
+        description: Optional[str],
     ):
         permission = Permission(name=name, description=description)
 
@@ -30,7 +32,7 @@ class PermissionRepository:
     def list_all(self):
         return self.db.query(Permission).order_by(Permission.id.asc()).all()
 
-    def get_by_ids(self, permission_ids: list[int]):
+    def get_by_ids(self, permission_ids: List[int]):
         if not permission_ids:
             return []
 

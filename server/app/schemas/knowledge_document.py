@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from pydantic import BaseModel, Field
 
 SUPPORTED_KNOWLEDGE_DOCUMENT_TYPES = [
@@ -16,11 +18,11 @@ SUPPORTED_KNOWLEDGE_DOCUMENT_TYPES = [
 class KnowledgeDocumentChunkCreate(BaseModel):
     chunk_index: int
     chunk_text: str
-    page_number: int | None = None
-    section_heading: str | None = None
-    token_count: int | None = None
+    page_number: Optional[int] = None
+    section_heading: Optional[str] = None
+    token_count: Optional[int] = None
     embedding_status: str = "pending"
-    embedding_ref: str | None = None
+    embedding_ref: Optional[str] = None
 
 
 class KnowledgeDocumentChunkResponse(BaseModel):
@@ -29,11 +31,11 @@ class KnowledgeDocumentChunkResponse(BaseModel):
     organization_id: int
     chunk_index: int
     chunk_text: str
-    page_number: int | None = None
-    section_heading: str | None = None
-    token_count: int | None = None
+    page_number: Optional[int] = None
+    section_heading: Optional[str] = None
+    token_count: Optional[int] = None
     embedding_status: str
-    embedding_ref: str | None = None
+    embedding_ref: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -45,9 +47,9 @@ class KnowledgeDocumentCreate(BaseModel):
     source_type: str = "upload"
     file_name: str
     storage_path: str
-    mime_type: str | None = None
-    checksum: str | None = None
-    chunks: list[KnowledgeDocumentChunkCreate] = Field(default_factory=list)
+    mime_type: Optional[str] = None
+    checksum: Optional[str] = None
+    chunks: List[KnowledgeDocumentChunkCreate] = Field(default_factory=list)
 
 
 class KnowledgeDocumentUpdate(BaseModel):
@@ -56,8 +58,8 @@ class KnowledgeDocumentUpdate(BaseModel):
     source_type: str = "upload"
     file_name: str
     storage_path: str
-    mime_type: str | None = None
-    checksum: str | None = None
+    mime_type: Optional[str] = None
+    checksum: Optional[str] = None
     status: str = "uploaded"
     is_active: bool = True
 
@@ -71,8 +73,8 @@ class KnowledgeDocumentResponse(BaseModel):
     source_type: str
     file_name: str
     storage_path: str
-    mime_type: str | None = None
-    checksum: str | None = None
+    mime_type: Optional[str] = None
+    checksum: Optional[str] = None
     status: str
     is_active: bool
 

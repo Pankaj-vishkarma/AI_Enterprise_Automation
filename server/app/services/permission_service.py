@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.repositories.permission_repository import PermissionRepository
@@ -14,7 +16,7 @@ class PermissionService:
     def create_permission(
         self,
         name: str,
-        description: str | None,
+        description: Optional[str],
     ):
         existing = self.permission_repo.get_by_name(name)
 
@@ -32,7 +34,7 @@ class PermissionService:
     def assign_permissions_to_role(
         self,
         role_id: int,
-        permission_ids: list[int],
+        permission_ids: List[int],
     ):
         role = self.role_repo.get_by_id(role_id)
 

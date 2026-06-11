@@ -8,12 +8,24 @@ from app.core.dependencies import require_permission, KNOWLEDGE_MANAGE_PERMISSIO
 from app.core.config import settings
 from app.services.ingest_service import IngestService
 from app.tasks.ingest_worker import enqueue_ingest
+from app.repositories.knowledge_document_repository import KnowledgeDocumentRepository
 
 from app.utils.extractors.pdf_extractor import extract_text_from_pdf
 from app.utils.extractors.docx_extractor import extract_text_from_docx
 from app.utils.extractors.txt_extractor import extract_text_from_txt
 
 router = APIRouter(prefix="/api/v1/knowledge", tags=["knowledge"])
+
+
+def _extract_text(path: str) -> str:
+    lower_name = path.lower()
+    if lower_name.endswith(".pdf"):
+        return extract_text_from_pdf(path)
+    if lower_name.endswith(".docx"):
+        return extract_text_from_docx(path)
+    if lower_name.endswith(".txt"):
+        return extract_text_from_txt(path)
+    raise ValueError("Unsupported file type")
 
 
 @router.post("/upload")
@@ -37,19 +49,12 @@ def upload_file(
     )
 
     # extract text
-    text = ""
-    lower_name = file.filename.lower()
     try:
-        if lower_name.endswith(".pdf"):
-            text = extract_text_from_pdf(dest)
-        elif lower_name.endswith(".docx"):
-            text = extract_text_from_docx(dest)
-        elif lower_name.endswith(".txt"):
-            text = extract_text_from_txt(dest)
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported file type"
-            )
+        text = _extract_text(dest)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
@@ -57,4 +62,37 @@ def upload_file(
 
     enqueue_ingest(db, current_user, document, text)
 
+    return {"document_id": document.id, "status": "ingest_queued"}
+
+
+@router.post("/documents/{document_id}/retry-ingest")
+def retry_ingest(
+    document_id: int,
+    current_user=Depends(require_permission(KNOWLEDGE_MANAGE_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    document = KnowledgeDocumentRepository(db).get_by_id_and_organization(
+        document_id, current_user.organization_id
+    )
+    if not document:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge document not found"
+        )
+    if not os.path.exists(document.storage_path):
+        KnowledgeDocumentRepository(db).update_status(document_id, "failed")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Stored file not found"
+        )
+    try:
+        text = _extract_text(document.storage_path)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except Exception as exc:
+        KnowledgeDocumentRepository(db).update_status(document_id, "failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)
+        ) from exc
+    enqueue_ingest(db, current_user, document, text)
     return {"document_id": document.id, "status": "ingest_queued"}

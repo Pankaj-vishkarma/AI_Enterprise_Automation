@@ -1,3 +1,5 @@
+from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -37,13 +39,42 @@ def _serialize_user(user):
     }
 
 
-@router.get("", response_model=list[UserOut])
+@router.get("", response_model=List[UserOut])
 def list_users(
     current_user=Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     service = UserService(db)
     return service.list_visible_users(current_user)
+
+
+@router.post("", response_model=UserOut)
+def create_user(
+    payload: ManagedUserCreate,
+    current_user=Depends(require_permission(MANAGE_USER_ROLES_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    if payload.role_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="role_id is required",
+        )
+    service = UserService(db)
+    try:
+        return service.create_user_with_role(
+            current_user,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            email=payload.email,
+            password=payload.password,
+            role_id=payload.role_id,
+            department_id=payload.department_id,
+            team_id=payload.team_id,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.post("/org-admins", response_model=UserOut)

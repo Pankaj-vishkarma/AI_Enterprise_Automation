@@ -1,3 +1,5 @@
+from typing import Dict, List, Optional
+
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.knowledge_document import KnowledgeDocument
@@ -15,11 +17,11 @@ class KnowledgeDocumentChunkRepository:
         document_id: int,
         chunk_index: int,
         chunk_text: str,
-        page_number: int | None,
-        section_heading: str | None,
-        token_count: int | None,
+        page_number: Optional[int],
+        section_heading: Optional[str],
+        token_count: Optional[int],
         embedding_status: str,
-        embedding_ref: str | None,
+        embedding_ref: Optional[str],
     ):
         chunk = KnowledgeDocumentChunk(
             organization_id=organization_id,
@@ -39,7 +41,7 @@ class KnowledgeDocumentChunkRepository:
 
         return chunk
 
-    def create_many(self, organization_id: int, document_id: int, chunks: list[dict]):
+    def create_many(self, organization_id: int, document_id: int, chunks: List[Dict]):
         created_chunks = []
 
         for chunk_data in chunks:
@@ -86,7 +88,7 @@ class KnowledgeDocumentChunkRepository:
         )
 
     def update_embedding(
-        self, chunk_id: int, vector: list[float], embedding_ref: str | None = None
+        self, chunk_id: int, vector: List[float], embedding_ref: Optional[str] = None
     ):
         chunk = (
             self.db.query(KnowledgeDocumentChunk)
@@ -119,3 +121,15 @@ class KnowledgeDocumentChunkRepository:
             .limit(limit)
             .all()
         )
+
+    def delete_by_document(self, organization_id: int, document_id: int):
+        deleted = (
+            self.db.query(KnowledgeDocumentChunk)
+            .filter(
+                KnowledgeDocumentChunk.organization_id == organization_id,
+                KnowledgeDocumentChunk.document_id == document_id,
+            )
+            .delete()
+        )
+        self.db.commit()
+        return deleted

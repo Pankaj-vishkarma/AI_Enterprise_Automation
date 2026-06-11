@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 from pydantic import BaseModel
 
 from app.schemas.knowledge_document import (
@@ -13,6 +15,6 @@ class KnowledgeSearchRequest(BaseModel):
 
 class KnowledgeSearchResult(BaseModel):
     answer_text: str
-    matched_documents: list[KnowledgeDocumentResponse]
-    matched_chunks: list[KnowledgeDocumentChunkResponse]
-    query_id: int | None = None
+    matched_documents: List[KnowledgeDocumentResponse]
+    matched_chunks: List[KnowledgeDocumentChunkResponse]
+    query_id: Optional[int] = None

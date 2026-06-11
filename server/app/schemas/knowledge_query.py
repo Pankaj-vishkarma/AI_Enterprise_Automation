@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import BaseModel
 
 from app.schemas.knowledge_document import KnowledgeDocumentResponse
@@ -15,8 +17,8 @@ class KnowledgeQueryResponse(BaseModel):
     user_id: int
     question_text: str
     answer_text: str
-    matched_document_ids: list[int]
-    matched_chunk_ids: list[int]
+    matched_document_ids: List[int]
+    matched_chunk_ids: List[int]
     query_status: str
 
     class Config:
@@ -29,8 +31,8 @@ class KnowledgeQueryHistoryResponse(BaseModel):
     user_id: int
     question_text: str
     answer_text: str
-    matched_document_ids: list[int]
-    matched_chunk_ids: list[int]
+    matched_document_ids: List[int]
+    matched_chunk_ids: List[int]
     query_status: str
 
     class Config:

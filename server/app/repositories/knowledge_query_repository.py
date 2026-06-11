@@ -1,4 +1,5 @@
 import json
+from typing import List
 
 from sqlalchemy.orm import Session
 
@@ -16,8 +17,8 @@ class KnowledgeQueryRepository:
         user_id: int,
         question_text: str,
         answer_text: str,
-        matched_document_ids: list[int],
-        matched_chunk_ids: list[int],
+        matched_document_ids: List[int],
+        matched_chunk_ids: List[int],
         query_status: str = "answered",
     ):
         query = KnowledgeQuery(

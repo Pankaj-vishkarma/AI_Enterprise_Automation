@@ -1,3 +1,5 @@
+from typing import List
+
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
@@ -12,11 +14,11 @@ class EmbeddingService:
         self.model = SentenceTransformer(model_name)
         self.chunk_repo = KnowledgeDocumentChunkRepository(db)
 
-    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+    def embed_texts(self, texts: List[str]) -> List[List[float]]:
         arr = self.model.encode(texts, show_progress_bar=False)
         return [list(map(float, v)) for v in arr]
 
-    def embed_and_persist(self, organization_id: int, chunk_objs: list):
+    def embed_and_persist(self, organization_id: int, chunk_objs: List):
         texts = [c.chunk_text for c in chunk_objs]
         vectors = self.embed_texts(texts)
         updated = []

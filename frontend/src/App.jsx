@@ -32,6 +32,7 @@ import EmployeesPage from './pages/employees/EmployeesPage';
 import EmployeeDetailPage from './pages/employees/EmployeeDetailPage';
 import CollaborationPage from './pages/collaboration/CollaborationPage';
 import WorkflowsPage from './pages/workflows/WorkflowsPage';
+import WorkflowInstancePage from './pages/workflows/WorkflowInstancePage';
 import ResearchPage from './pages/research/ResearchPage';
 import BrowserAutomationPage from './pages/browser/BrowserAutomationPage';
 import VoicePage from './pages/voice/VoicePage';
@@ -125,6 +126,7 @@ function AppRoutes() {
 
       {/* Workflow Automation */}
       <Route path="/workflows" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><WorkflowsPage /></Suspense></ProtectedRoute>} />
+      <Route path="/workflows/instances/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><WorkflowInstancePage /></Suspense></ProtectedRoute>} />
 
       {/* Business Research Hub */}
       <Route path="/research" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ResearchPage /></Suspense></ProtectedRoute>} />

@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import Session
 
 from app.clients.groq_client import GroqClient
-from app.services.operations_service import OperationsService
+from app.services.browser_automation_service import execute_browser_task
 from app.services.rag_service import RAGService
 
 # Canonical tool names
@@ -37,7 +37,6 @@ class AIEmployeeTools:
     def __init__(self, db: Session):
         self.db = db
         self.groq = GroqClient()
-        self.ops = OperationsService(db)
 
     def execute_tools(
         self,
@@ -70,7 +69,7 @@ class AIEmployeeTools:
                 tools_used.append("research_tool")
 
         if BROWSER_AUTOMATION in normalized:
-            browser_results = OperationsService._execute_browser_task(task)
+            browser_results = execute_browser_task(task)
             if browser_results:
                 contexts["browser"] = json.dumps(browser_results, indent=2)
                 tools_used.append("browser_automation")

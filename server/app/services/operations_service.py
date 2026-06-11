@@ -1,10 +1,6 @@
 import json
-import ipaddress
-import re
-import socket
 from collections import Counter
 from typing import Dict, List
-from urllib.parse import urlparse
 
 from sqlalchemy.orm import Session
 
@@ -13,6 +9,7 @@ from app.clients.redis_client import get_redis
 from app.models.knowledge_query import KnowledgeQuery
 from app.repositories.operational_record_repository import OperationalRecordRepository
 from app.services.ai_employee_service import AIEmployeeService
+from app.services.browser_automation_service import execute_browser_task
 from app.services.rag_service import RAGService
 
 
@@ -154,7 +151,7 @@ class OperationsService:
             raise ValueError("Unsupported reasoning module")
         browser_results = []
         if module == "browser-automation":
-            browser_results = self._execute_browser_task(prompt)
+            browser_results = execute_browser_task(prompt)
             if browser_results:
                 system += f"\nVerified browser extraction:\n{json.dumps(browser_results)}"
         result = self._reason(f"{system}\nTask: {prompt}", f"# Result\n\nTask accepted: {prompt}")
@@ -165,43 +162,6 @@ class OperationsService:
             "data": {"prompt": prompt, "result": result, "results": browser_results},
         }
         return self.repo.serialize(self.repo.create(current_user.organization_id, current_user.id, module, payload))
-
-    @staticmethod
-    def _execute_browser_task(prompt: str) -> List[Dict]:
-        urls = re.findall(r"https?://[^\s]+", prompt)
-        if not urls:
-            return []
-        url = urls[0].rstrip(".,)")
-        parsed = urlparse(url)
-        try:
-            addresses = socket.getaddrinfo(parsed.hostname, None)
-            if any(ipaddress.ip_address(item[4][0]).is_private for item in addresses):
-                return []
-            from playwright.sync_api import sync_playwright
-
-            with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(headless=True)
-                page = browser.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=30000)
-                links = page.locator("a").evaluate_all(
-                    "(els) => els.slice(0, 20).map((a, i) => ({id: i + 1, title: (a.innerText || a.title || 'Link').trim(), url: a.href}))"
-                )
-                title = page.title()
-                browser.close()
-            return [
-                {
-                    "id": item["id"],
-                    "title": item["title"][:200],
-                    "company": parsed.hostname,
-                    "location": item["url"],
-                    "salary": "-",
-                    "posted": title[:100],
-                }
-                for item in links
-                if item.get("url")
-            ]
-        except Exception:
-            return []
 
     def run_ai_employee(self, current_user, employee_id: int, task: str):
         return AIEmployeeService(self.db).run(current_user, employee_id, task)

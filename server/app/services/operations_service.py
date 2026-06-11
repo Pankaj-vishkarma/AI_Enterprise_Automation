@@ -9,10 +9,10 @@ from app.clients.redis_client import get_redis
 from app.models.knowledge_query import KnowledgeQuery
 from app.repositories.operational_record_repository import OperationalRecordRepository
 from app.services.ai_employee_service import AIEmployeeService
-from app.services.browser_automation_service import execute_browser_task
 from app.services.rag_service import RAGService
 from app.services.workflow_service import WorkflowService
 from app.services.research_service import ResearchService
+from app.services.browser_service import BrowserService
 
 
 MODULES = {
@@ -164,22 +164,27 @@ class OperationsService:
                 "updated_at": report.get("updated_at"),
             }
         elif module == "browser-automation":
-            system = "Turn this browser task into a structured execution report. Never claim a website was accessed unless evidence is supplied."
+            task = BrowserService(self.db).run_task(current_user, prompt, task_type="general")
+            return {
+                "id": task["id"],
+                "organization_id": task["organization_id"],
+                "created_by_user_id": task["created_by_user_id"],
+                "module": "browser-automation",
+                "record_type": "run",
+                "title": task["title"],
+                "status": task["status"],
+                "data": {
+                    "prompt": prompt,
+                    "result": task.get("report_text") or task.get("summary") or "",
+                    "results": task.get("results", []),
+                    "logs": task.get("logs", []),
+                    "task_id": task["id"],
+                },
+                "created_at": task.get("created_at"),
+                "updated_at": task.get("updated_at"),
+            }
         else:
             raise ValueError("Unsupported reasoning module")
-        browser_results = []
-        if module == "browser-automation":
-            browser_results = execute_browser_task(prompt)
-            if browser_results:
-                system += f"\nVerified browser extraction:\n{json.dumps(browser_results)}"
-        result = self._reason(f"{system}\nTask: {prompt}", f"# Result\n\nTask accepted: {prompt}")
-        payload = {
-            "title": prompt[:255],
-            "record_type": "run",
-            "status": "completed",
-            "data": {"prompt": prompt, "result": result, "results": browser_results},
-        }
-        return self.repo.serialize(self.repo.create(current_user.organization_id, current_user.id, module, payload))
 
     def run_ai_employee(self, current_user, employee_id: int, task: str):
         return AIEmployeeService(self.db).run(current_user, employee_id, task)

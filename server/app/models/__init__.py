@@ -20,3 +20,4 @@ from .collaboration_team_member import CollaborationTeamMember
 from .collaboration_run import CollaborationRun
 from .workflow import Workflow, WorkflowStep, WorkflowInstance, WorkflowInstanceStep, WorkflowAuditLog, Notification
 from .research_report import ResearchReport
+from .browser_task import BrowserTask

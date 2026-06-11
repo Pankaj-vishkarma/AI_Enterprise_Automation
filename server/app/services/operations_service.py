@@ -12,6 +12,7 @@ from app.services.ai_employee_service import AIEmployeeService
 from app.services.browser_automation_service import execute_browser_task
 from app.services.rag_service import RAGService
 from app.services.workflow_service import WorkflowService
+from app.services.research_service import ResearchService
 
 
 MODULES = {
@@ -140,12 +141,28 @@ class OperationsService:
 
     def run_reasoning(self, current_user, module: str, prompt: str):
         if module == "research":
-            system = "Produce a structured business research report with assumptions, findings, risks, and recommendations."
-            try:
-                query, _ = RAGService(self.db).ask(current_user, prompt, 5)
-                system += f"\nRelevant organizational knowledge:\n{query.answer_text}"
-            except Exception:
-                pass
+            report = ResearchService(self.db).run_research(
+                current_user, prompt, research_type="Business Intelligence"
+            )
+            return {
+                "id": report["id"],
+                "organization_id": report["organization_id"],
+                "created_by_user_id": report["created_by_user_id"],
+                "module": "research",
+                "record_type": "report",
+                "title": report["title"],
+                "status": report["status"],
+                "data": {
+                    "prompt": prompt,
+                    "result": report["final_report"],
+                    "summary": report.get("summary"),
+                    "recommendations": report.get("recommendations"),
+                    "confidence_score": report.get("confidence_score"),
+                    "report_id": report["id"],
+                },
+                "created_at": report.get("created_at"),
+                "updated_at": report.get("updated_at"),
+            }
         elif module == "browser-automation":
             system = "Turn this browser task into a structured execution report. Never claim a website was accessed unless evidence is supplied."
         else:

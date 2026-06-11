@@ -34,6 +34,7 @@ import CollaborationPage from './pages/collaboration/CollaborationPage';
 import WorkflowsPage from './pages/workflows/WorkflowsPage';
 import WorkflowInstancePage from './pages/workflows/WorkflowInstancePage';
 import ResearchPage from './pages/research/ResearchPage';
+import ResearchReportPage from './pages/research/ResearchReportPage';
 import BrowserAutomationPage from './pages/browser/BrowserAutomationPage';
 import VoicePage from './pages/voice/VoicePage';
 import SupportPage from './pages/support/SupportPage';
@@ -130,6 +131,7 @@ function AppRoutes() {
 
       {/* Business Research Hub */}
       <Route path="/research" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ResearchPage /></Suspense></ProtectedRoute>} />
+      <Route path="/research/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ResearchReportPage /></Suspense></ProtectedRoute>} />
 
       {/* Browser Automation */}
       <Route path="/browser-automation" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><BrowserAutomationPage /></Suspense></ProtectedRoute>} />

@@ -25,6 +25,7 @@ from app.schemas.knowledge_query import (
 from app.schemas.knowledge_search import KnowledgeSearchRequest, KnowledgeSearchResult
 from app.services.knowledge_document_service import KnowledgeDocumentService
 from app.services.rag_service import RAGService
+from app.services.knowledge_search_service import KnowledgeSearchService
 
 router = APIRouter(prefix="/api/v1/knowledge", tags=["knowledge"])
 

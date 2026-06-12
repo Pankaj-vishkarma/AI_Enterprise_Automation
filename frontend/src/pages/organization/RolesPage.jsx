@@ -4,6 +4,12 @@ import MainLayout from '../../components/layout/MainLayout';
 import { rolesAPI } from '../../api/roles';
 import { permissionsAPI } from '../../api/permissions';
 import { Plus, Edit, Trash2 } from 'lucide-react';
+import {
+  orgPageTitle, orgPageDesc, orgSectionTitle, orgInputPlain,
+  orgBtnPrimary, orgBtnGhost, orgBtnIconPrimary, orgBtnIconDanger,
+  orgGlassCard, orgBadgePerm, orgModalOverlay, orgModal, orgError,
+  orgEmpty, orgLoading,
+} from './orgStyles';
 
 const emptyForm = { id: null, name: '', permission_ids: [] };
 
@@ -51,48 +57,55 @@ export default function RolesPage({ isSubSection = false }) {
   };
 
   const content = (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Roles & Permissions</h1>
-        <p className="text-muted-foreground mt-2">Manage user roles and permission assignments</p>
-      </div>
+    <div className="space-y-5 sm:space-y-6">
+      {!isSubSection ? (
+        <div>
+          <h1 className={orgPageTitle}>Roles & Permissions</h1>
+          <p className={orgPageDesc}>Manage user roles and permission assignments</p>
+        </div>
+      ) : (
+        <div>
+          <h2 className={orgSectionTitle}>Roles & Permissions</h2>
+          <p className={orgPageDesc}>Manage user roles and permission assignments</p>
+        </div>
+      )}
 
       <div className="flex justify-end">
-        <button onClick={() => openForm()} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90">
-          <Plus size={20} />
+        <button type="button" onClick={() => openForm()} className={orgBtnPrimary}>
+          <Plus size={18} />
           Add Role
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {isLoading ? (
-          <div className="col-span-full text-center py-8">Loading...</div>
+          <div className={`col-span-full ${orgLoading}`}>Loading...</div>
         ) : roles.length === 0 ? (
-          <div className="col-span-full text-center py-8 text-muted-foreground">No roles found</div>
+          <div className={`col-span-full ${orgEmpty}`}>No roles found</div>
         ) : (
           roles.map((role) => (
-            <div key={role.id} className="bg-card border border-border rounded-lg p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground">{role.name}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">{role.permissions?.length || 0} permissions assigned</p>
+            <div key={role.id} className={orgGlassCard}>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-[#1A1A14] truncate">{role.name}</h3>
+                  <p className="text-sm text-[#6A6A60] mt-1">{role.permissions?.length || 0} permissions assigned</p>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => openForm(role)} className="text-primary hover:bg-secondary p-2 rounded-lg" title="Edit role">
+                <div className="flex gap-1 shrink-0">
+                  <button type="button" onClick={() => openForm(role)} className={orgBtnIconPrimary} title="Edit role">
                     <Edit size={18} />
                   </button>
-                  <button onClick={() => deleteMutation.mutate(role.id)} className="text-destructive hover:bg-red-50 p-2 rounded-lg" title="Delete role">
+                  <button type="button" onClick={() => deleteMutation.mutate(role.id)} className={orgBtnIconDanger} title="Delete role">
                     <Trash2 size={18} />
                   </button>
                 </div>
               </div>
               <div className="mt-4">
-                <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wide">Permissions</p>
+                <p className="text-xs font-semibold text-[#6A6A60] mb-2 uppercase tracking-wider">Permissions</p>
                 <div className="flex flex-wrap gap-2">
                   {(role.permissions || []).map((perm) => (
-                    <span key={perm.id} className="bg-secondary text-secondary-foreground text-xs px-3 py-1 rounded-full">{perm.name}</span>
+                    <span key={perm.id} className={orgBadgePerm}>{perm.name}</span>
                   ))}
-                  {!role.permissions?.length && <span className="text-xs text-muted-foreground">No permissions assigned</span>}
+                  {!role.permissions?.length && <span className="text-xs text-[#6A6A60]">No permissions assigned</span>}
                 </div>
               </div>
             </div>
@@ -101,25 +114,25 @@ export default function RolesPage({ isSubSection = false }) {
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }} className="bg-card border border-border rounded-xl shadow-lg w-full max-w-2xl p-6 space-y-4">
-            <h2 className="text-xl font-bold text-foreground">{form.id ? 'Edit Role' : 'Add Role'}</h2>
-            {errorText && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{errorText}</div>}
-            <input required placeholder="Role name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full px-4 py-2 border border-border rounded-lg bg-input" />
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-72 overflow-y-auto border border-border rounded-lg p-3">
+        <div className={orgModalOverlay}>
+          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }} className={`${orgModal} max-w-2xl max-h-[90vh] overflow-y-auto`}>
+            <h2 className={orgSectionTitle}>{form.id ? 'Edit Role' : 'Add Role'}</h2>
+            {errorText && <div className={orgError}>{errorText}</div>}
+            <input required placeholder="Role name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={orgInputPlain} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-72 overflow-y-auto border border-[#1A1A14]/10 rounded-xl p-3 bg-white/30">
               {permissions.map((permission) => (
-                <label key={permission.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-secondary/60 cursor-pointer">
-                  <input type="checkbox" checked={form.permission_ids.includes(permission.id)} onChange={() => togglePermission(permission.id)} className="mt-1" />
+                <label key={permission.id} className="flex items-start gap-2 p-2 rounded-lg hover:bg-[#1A1A14]/5 cursor-pointer transition-colors">
+                  <input type="checkbox" checked={form.permission_ids.includes(permission.id)} onChange={() => togglePermission(permission.id)} className="mt-1 accent-[#1A1A14]" />
                   <span>
-                    <span className="block text-sm font-semibold text-foreground">{permission.name}</span>
-                    <span className="block text-xs text-muted-foreground">{permission.description || 'No description'}</span>
+                    <span className="block text-sm font-semibold text-[#1A1A14]">{permission.name}</span>
+                    <span className="block text-xs text-[#6A6A60]">{permission.description || 'No description'}</span>
                   </span>
                 </label>
               ))}
             </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 border border-border rounded-lg">Cancel</button>
-              <button disabled={saveMutation.isPending} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">{saveMutation.isPending ? 'Saving...' : 'Save Role'}</button>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setIsOpen(false)} className={orgBtnGhost}>Cancel</button>
+              <button type="submit" disabled={saveMutation.isPending} className={orgBtnPrimary}>{saveMutation.isPending ? 'Saving...' : 'Save Role'}</button>
             </div>
           </form>
         </div>

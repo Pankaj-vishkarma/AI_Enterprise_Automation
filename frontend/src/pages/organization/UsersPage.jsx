@@ -6,6 +6,13 @@ import { rolesAPI } from '../../api/roles';
 import { departmentsAPI } from '../../api/departments';
 import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, UserCheck, UserX } from 'lucide-react';
+import {
+  orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgSelect,
+  orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary,
+  orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted,
+  orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError,
+  orgEmpty, orgLoading, orgPagination,
+} from './orgStyles';
 
 const emptyForm = {
   id: null,
@@ -103,88 +110,99 @@ export default function UsersPage({ isSubSection = false }) {
   };
 
   const content = (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Users</h1>
-        <p className="text-muted-foreground mt-2">Manage organization users, roles, departments, and teams</p>
-      </div>
+    <div className="space-y-5 sm:space-y-6">
+      {!isSubSection && (
+        <div>
+          <h1 className={orgPageTitle}>Users</h1>
+          <p className={orgPageDesc}>Manage organization users, roles, departments, and teams</p>
+        </div>
+      )}
+      {isSubSection && (
+        <div>
+          <h2 className={orgSectionTitle}>Users</h2>
+          <p className={orgPageDesc}>Manage organization users, roles, departments, and teams</p>
+        </div>
+      )}
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1 max-w-md">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex-1 w-full sm:max-w-md">
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-muted-foreground" size={20} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
             <input
               type="text"
               placeholder="Search users..."
               value={searchTerm}
               onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
-              className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-primary"
+              className={orgInputWithIcon}
             />
           </div>
         </div>
-        <button onClick={openCreate} className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90">
-          <Plus size={20} />
+        <button type="button" onClick={openCreate} className={orgBtnPrimary}>
+          <Plus size={18} />
           Add User
         </button>
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      <div className={orgTableWrap}>
         {isLoading ? (
-          <div className="p-8 text-center">Loading...</div>
+          <div className={orgLoading}>Loading...</div>
         ) : error ? (
-          <div className="p-8 text-center text-red-600">Error loading users</div>
+          <div className={`${orgEmpty} text-red-600`}>Error loading users</div>
         ) : users.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">No users found</div>
+          <div className={orgEmpty}>No users found</div>
         ) : (
           <>
-            <table className="w-full">
-              <thead className="bg-secondary border-b border-border">
-                <tr>
-                  <th className="text-left px-6 py-3 font-semibold text-foreground">Name</th>
-                  <th className="text-left px-6 py-3 font-semibold text-foreground">Email</th>
-                  <th className="text-left px-6 py-3 font-semibold text-foreground">Department</th>
-                  <th className="text-left px-6 py-3 font-semibold text-foreground">Team</th>
-                  <th className="text-left px-6 py-3 font-semibold text-foreground">Role</th>
-                  <th className="text-left px-6 py-3 font-semibold text-foreground">Status</th>
-                  <th className="text-center px-6 py-3 font-semibold text-foreground">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b border-border hover:bg-secondary/50 transition">
-                    <td className="px-6 py-4 text-foreground font-medium">{user.first_name} {user.last_name || ''}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{user.email}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{deptMap[user.department_id] || '-'}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{teamMap[user.team_id] || '-'}</td>
-                    <td className="px-6 py-4 text-muted-foreground">{roleMap[user.role_id] || '-'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                        {user.is_active ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <button onClick={() => openEdit(user)} className="text-primary hover:bg-secondary p-2 rounded-lg transition" title="Edit user">
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          onClick={() => statusMutation.mutate({ id: user.id, active: !user.is_active })}
-                          className="text-muted-foreground hover:bg-secondary p-2 rounded-lg transition"
-                          title={user.is_active ? 'Disable user' : 'Enable user'}
-                        >
-                          {user.is_active ? <UserX size={18} /> : <UserCheck size={18} />}
-                        </button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px]">
+                <thead className={orgTableHead}>
+                  <tr>
+                    <th className={orgTh}>Name</th>
+                    <th className={orgTh}>Email</th>
+                    <th className={orgTh}>Department</th>
+                    <th className={orgTh}>Team</th>
+                    <th className={orgTh}>Role</th>
+                    <th className={orgTh}>Status</th>
+                    <th className={`${orgTh} text-center`}>Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="px-6 py-4 border-t border-border flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total} users</span>
+                </thead>
+                <tbody>
+                  {users.map((user) => (
+                    <tr key={user.id} className={orgTr}>
+                      <td className={`${orgTd} font-medium`}>{user.first_name} {user.last_name || ''}</td>
+                      <td className={orgTdMuted}>{user.email}</td>
+                      <td className={orgTdMuted}>{deptMap[user.department_id] || '-'}</td>
+                      <td className={orgTdMuted}>{teamMap[user.team_id] || '-'}</td>
+                      <td className={orgTdMuted}>{roleMap[user.role_id] || '-'}</td>
+                      <td className={orgTd}>
+                        <span className={user.is_active ? orgBadgeActive : orgBadgeInactive}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className={orgTd}>
+                        <div className="flex items-center justify-center gap-1">
+                          <button type="button" onClick={() => openEdit(user)} className={orgBtnIconPrimary} title="Edit user">
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => statusMutation.mutate({ id: user.id, active: !user.is_active })}
+                            className={orgBtnIcon}
+                            title={user.is_active ? 'Disable user' : 'Enable user'}
+                          >
+                            {user.is_active ? <UserX size={18} /> : <UserCheck size={18} />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="px-4 sm:px-6 py-4 border-t border-[#1A1A14]/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-sm text-[#6A6A60]">Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total} users</span>
               <div className="flex gap-2">
-                <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="px-4 py-2 border border-border rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
-                <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className="px-4 py-2 border border-border rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
+                <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={orgPagination}>Previous</button>
+                <button type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
               </div>
             </div>
           </>
@@ -192,31 +210,31 @@ export default function UsersPage({ isSubSection = false }) {
       </div>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }} className="bg-card border border-border rounded-xl shadow-lg w-full max-w-2xl p-6 space-y-4">
-            <h2 className="text-xl font-bold text-foreground">{form.id ? 'Edit User' : 'Add User'}</h2>
-            {errorText && <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{errorText}</div>}
+        <div className={orgModalOverlay}>
+          <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }} className={`${orgModal} max-w-2xl max-h-[90vh] overflow-y-auto`}>
+            <h2 className={orgSectionTitle}>{form.id ? 'Edit User' : 'Add User'}</h2>
+            {errorText && <div className={orgError}>{errorText}</div>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input required placeholder="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input" />
-              <input placeholder="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input" />
-              <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input" />
-              {!form.id && <input required type="password" placeholder="Temporary password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input" />}
-              <select required value={form.role_id} onChange={(e) => setForm({ ...form, role_id: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input">
+              <input required placeholder="First name" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} className={orgInputPlain} />
+              <input placeholder="Last name" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} className={orgInputPlain} />
+              <input required type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={orgInputPlain} />
+              {!form.id && <input required type="password" placeholder="Temporary password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={orgInputPlain} />}
+              <select required value={form.role_id} onChange={(e) => setForm({ ...form, role_id: e.target.value })} className={orgSelect}>
                 <option value="">Select role</option>
                 {roles.map((role) => <option key={role.id} value={role.id}>{role.name}</option>)}
               </select>
-              <select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input">
+              <select value={form.department_id} onChange={(e) => setForm({ ...form, department_id: e.target.value })} className={orgSelect}>
                 <option value="">No department</option>
                 {departments.filter((d) => d.is_active).map((dept) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
               </select>
-              <select value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })} className="px-4 py-2 border border-border rounded-lg bg-input">
+              <select value={form.team_id} onChange={(e) => setForm({ ...form, team_id: e.target.value })} className={orgSelect}>
                 <option value="">No team</option>
                 {teams.filter((t) => t.is_active).map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
               </select>
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <button type="button" onClick={() => setIsOpen(false)} className="px-4 py-2 border border-border rounded-lg">Cancel</button>
-              <button disabled={saveMutation.isPending} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">{saveMutation.isPending ? 'Saving...' : 'Save User'}</button>
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setIsOpen(false)} className={orgBtnGhost}>Cancel</button>
+              <button type="submit" disabled={saveMutation.isPending} className={orgBtnPrimary}>{saveMutation.isPending ? 'Saving...' : 'Save User'}</button>
             </div>
           </form>
         </div>

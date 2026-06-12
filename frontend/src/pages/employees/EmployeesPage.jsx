@@ -6,6 +6,11 @@ import { aiEmployeesAPI } from '../../api/aiEmployees';
 import { departmentsAPI } from '../../api/departments';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Plus, Bot, UserCheck, Settings, X, Loader } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon,
+  appModalOverlay, appModal, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel,
+  appBadgeActive, appBadgeWarning, appBadgeInfo,
+} from '../../styles/appStyles';
 
 const ROLE_COLORS = {
   'HR Assistant': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -133,38 +138,32 @@ export default function EmployeesPage() {
       <div className="space-y-6">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <Bot size={32} className="text-primary" />
+            <h1 className={`${appPageTitle} flex items-center gap-2`}>
+              <Bot size={32} className="text-[#1A1A14]" />
               AI Employee Studio
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className={appPageDesc}>
               Deploy specialized AI agents for department-specific support across your organization.
             </p>
           </div>
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition cursor-pointer font-medium"
-          >
+          <button onClick={openCreate} className={appBtnPrimary}>
             <Plus size={20} />
             Hire AI Employee
           </button>
         </div>
 
         {isLoading ? (
-          <div className="flex justify-center py-16">
-            <Loader className="animate-spin text-primary" size={32} />
+          <div className={appLoading}>
+            <Loader className="animate-spin text-[#1A1A14] mx-auto" size={32} />
           </div>
         ) : employees.length === 0 ? (
-          <div className="bg-card border border-border rounded-xl p-12 text-center">
-            <Bot size={48} className="mx-auto text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold text-foreground">No AI employees yet</h3>
-            <p className="text-muted-foreground mt-2 mb-6">
+          <div className={`${appGlassCard} ${appEmpty}`}>
+            <Bot size={48} className="mx-auto text-[#6A6A60] mb-4" />
+            <h3 className="text-lg font-semibold text-[#1A1A14]">No AI employees yet</h3>
+            <p className="text-[#6A6A60] mt-2 mb-6">
               Hire your first virtual team member to automate HR, support, sales, research, or documentation tasks.
             </p>
-            <button
-              onClick={openCreate}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 font-medium"
-            >
+            <button onClick={openCreate} className={appBtnPrimary}>
               Hire AI Employee
             </button>
           </div>
@@ -174,7 +173,7 @@ export default function EmployeesPage() {
               <Link
                 key={emp.id}
                 to={`/employees/${emp.id}`}
-                className="bg-card border border-border rounded-xl p-6 hover:shadow-md transition flex flex-col justify-between"
+                className={`${appGlassCard} flex flex-col justify-between`}
               >
                 <div>
                   <div className="flex justify-between items-start mb-4">
@@ -182,46 +181,41 @@ export default function EmployeesPage() {
                       {emp.name.charAt(0)}
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                        emp.status === 'Active'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
+                      className={`inline-flex items-center gap-1.5 ${
+                        emp.status === 'Active' ? appBadgeActive : appBadgeWarning
                       }`}
                     >
                       <span
                         className={`w-1.5 h-1.5 rounded-full ${
-                          emp.status === 'Active' ? 'bg-green-600 animate-pulse' : 'bg-yellow-500'
+                          emp.status === 'Active' ? 'bg-emerald-600 animate-pulse' : 'bg-amber-500'
                         }`}
                       />
                       {emp.status}
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <h3 className="text-lg font-bold text-foreground">{emp.name}</h3>
-                    <p className="text-sm font-medium text-primary">
+                    <h3 className="text-lg font-bold text-[#1A1A14]">{emp.name}</h3>
+                    <p className="text-sm font-medium text-[#1A1A14]">
                       {emp.role} • {emp.department || 'No department'}
                     </p>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-4 leading-relaxed line-clamp-3">
+                  <p className="text-sm text-[#6A6A60] mt-4 leading-relaxed line-clamp-3">
                     {emp.instructions}
                   </p>
                   <div className="mt-4 flex flex-wrap gap-1.5">
                     {(emp.tools || []).map((tool) => (
-                      <span
-                        key={tool}
-                        className="bg-secondary text-secondary-foreground text-xs px-2.5 py-0.5 rounded-lg border border-border"
-                      >
+                      <span key={tool} className={appBadgeInfo}>
                         {tool}
                       </span>
                     ))}
                   </div>
                 </div>
-                <div className="mt-6 pt-4 border-t border-border flex justify-between items-center text-xs text-muted-foreground">
+                <div className="mt-6 pt-4 border-t border-[#1A1A14]/10 flex justify-between items-center text-xs text-[#6A6A60]">
                   <span className="flex items-center gap-1">
                     <Settings size={12} />
                     {emp.model || 'default model'}
                   </span>
-                  <span className="text-primary font-semibold">View Details →</span>
+                  <span className="text-[#1A1A14] font-semibold">View Details →</span>
                 </div>
               </Link>
             ))}
@@ -229,17 +223,14 @@ export default function EmployeesPage() {
         )}
 
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-2xl overflow-hidden max-h-[90vh] flex flex-col">
-              <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-secondary">
-                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <UserCheck size={20} className="text-primary" />
+          <div className={appModalOverlay}>
+            <div className={`${appModal} max-w-2xl !p-0 flex flex-col max-h-[90vh] overflow-hidden`}>
+              <div className="flex justify-between items-center px-6 py-4 border-b border-[#1A1A14]/10 bg-[#1A1A14]/[0.04]">
+                <h2 className={`${appSectionTitle} flex items-center gap-2`}>
+                  <UserCheck size={20} className="text-[#1A1A14]" />
                   Hire AI Employee
                 </h2>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition cursor-pointer"
-                >
+                <button onClick={() => setIsModalOpen(false)} className={appBtnIcon}>
                   <X size={20} />
                 </button>
               </div>
@@ -250,29 +241,25 @@ export default function EmployeesPage() {
                 }}
                 className="p-6 space-y-4 overflow-y-auto flex-1"
               >
-                {errorText && (
-                  <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-                    {errorText}
-                  </div>
-                )}
+                {errorText && <div className={appError}>{errorText}</div>}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Agent Name</label>
+                    <label className={appLabel}>Agent Name</label>
                     <input
                       type="text"
                       required
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
                       placeholder="e.g. Emma - HR Assistant"
-                      className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      className={appInputPlain}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Employee Type</label>
+                    <label className={appLabel}>Employee Type</label>
                     <select
                       value={form.role}
                       onChange={(e) => onRoleChange(e.target.value)}
-                      className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      className={appSelect}
                     >
                       {(config.employee_types || []).map((type) => (
                         <option key={type} value={type}>
@@ -284,11 +271,11 @@ export default function EmployeesPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">Department</label>
+                    <label className={appLabel}>Department</label>
                     <select
                       value={form.department_id}
                       onChange={(e) => setForm({ ...form, department_id: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      className={appSelect}
                     >
                       <option value="">No department</option>
                       {departments.map((dept) => (
@@ -299,11 +286,11 @@ export default function EmployeesPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">LLM Model (Groq)</label>
+                    <label className={appLabel}>LLM Model (Groq)</label>
                     <select
                       value={form.model}
                       onChange={(e) => setForm({ ...form, model: e.target.value })}
-                      className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                      className={appSelect}
                     >
                       {(config.models || []).map((model) => (
                         <option key={model} value={model}>
@@ -314,69 +301,61 @@ export default function EmployeesPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Instructions</label>
+                  <label className={appLabel}>Instructions</label>
                   <textarea
                     required
                     rows={4}
                     value={form.instructions}
                     onChange={(e) => setForm({ ...form, instructions: e.target.value })}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
+                    className={`${appInputPlain} resize-none`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Tools</label>
+                  <label className={appLabel}>Tools</label>
                   <div className="grid grid-cols-2 gap-2">
                     {(config.tools || []).map((tool) => (
                       <label
                         key={tool}
-                        className="flex items-center gap-2 p-2 border border-border hover:bg-secondary/40 rounded-lg cursor-pointer"
+                        className="flex items-center gap-2 p-2 border border-[#1A1A14]/10 hover:bg-[#1A1A14]/[0.03] rounded-xl cursor-pointer"
                       >
                         <input
                           type="checkbox"
                           checked={form.tools.includes(tool)}
                           onChange={() => toggleTool(tool)}
-                          className="rounded text-primary focus:ring-primary"
+                          className="rounded text-[#1A1A14] focus:ring-[#1A1A14]/20"
                         />
-                        <span className="text-sm text-foreground">{tool}</span>
+                        <span className="text-sm text-[#1A1A14]">{tool}</span>
                       </label>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">
+                  <label className={appLabel}>
                     Knowledge Documents (optional — empty = all org knowledge)
                   </label>
-                  <div className="max-h-32 overflow-y-auto border border-border rounded-lg p-2 space-y-1">
+                  <div className="max-h-32 overflow-y-auto border border-[#1A1A14]/10 rounded-xl p-2 space-y-1">
                     {documents.length === 0 ? (
-                      <p className="text-xs text-muted-foreground p-2">No documents uploaded yet.</p>
+                      <p className="text-xs text-[#6A6A60] p-2">No documents uploaded yet.</p>
                     ) : (
                       documents.map((doc) => (
-                        <label key={doc.id} className="flex items-center gap-2 p-1.5 hover:bg-secondary/40 rounded cursor-pointer">
+                        <label key={doc.id} className="flex items-center gap-2 p-1.5 hover:bg-[#1A1A14]/[0.03] rounded-lg cursor-pointer">
                           <input
                             type="checkbox"
                             checked={form.knowledge_document_ids.includes(doc.id)}
                             onChange={() => toggleDocument(doc.id)}
-                            className="rounded text-primary"
+                            className="rounded text-[#1A1A14]"
                           />
-                          <span className="text-sm text-foreground">{doc.title}</span>
+                          <span className="text-sm text-[#1A1A14]">{doc.title}</span>
                         </label>
                       ))
                     )}
                   </div>
                 </div>
-                <div className="flex gap-3 justify-end pt-4 border-t border-border">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 border border-border rounded-lg hover:bg-secondary text-sm font-semibold"
-                  >
+                <div className="flex gap-3 justify-end pt-4 border-t border-[#1A1A14]/10">
+                  <button type="button" onClick={() => setIsModalOpen(false)} className={appBtnGhost}>
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={createMutation.isPending}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 text-sm font-semibold disabled:opacity-50"
-                  >
+                  <button type="submit" disabled={createMutation.isPending} className={appBtnPrimary}>
                     {createMutation.isPending ? 'Deploying...' : 'Deploy Agent'}
                   </button>
                 </div>

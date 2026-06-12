@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { browserAPI } from '../../api/browser';
 import { ArrowLeft, Download, Loader, Terminal, Trash2, Table } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger,
+  appTableWrap, appTableHead, appTh, appTr, appTd, appEmpty, appBadgeInfo,
+} from '../../styles/appStyles';
 
 export default function BrowserTaskPage() {
   const { id } = useParams();
@@ -39,7 +43,9 @@ export default function BrowserTaskPage() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex justify-center py-16"><Loader className="animate-spin text-primary" size={32} /></div>
+        <div className="flex justify-center py-16">
+          <Loader className="animate-spin text-[#1A1A14]" size={32} />
+        </div>
       </MainLayout>
     );
   }
@@ -47,9 +53,9 @@ export default function BrowserTaskPage() {
   if (!task) {
     return (
       <MainLayout>
-        <div className="text-center py-16">
-          <p className="text-muted-foreground">Task not found.</p>
-          <Link to="/browser-automation" className="text-primary mt-4 inline-block hover:underline">Back</Link>
+        <div className={appEmpty}>
+          <p>Task not found.</p>
+          <Link to="/browser-automation" className="text-[#1A1A14] mt-4 inline-block font-medium hover:underline">Back to tasks</Link>
         </div>
       </MainLayout>
     );
@@ -60,47 +66,59 @@ export default function BrowserTaskPage() {
   return (
     <MainLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Link to="/browser-automation" className="text-muted-foreground hover:text-foreground"><ArrowLeft size={20} /></Link>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">{task.title}</h1>
-            <p className="text-sm text-muted-foreground">{task.task_type} • {task.status}</p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <Link to="/browser-automation" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5">
+              <ArrowLeft size={20} />
+            </Link>
+            <div className="min-w-0">
+              <h1 className={`${appPageTitle} !text-xl sm:!text-2xl truncate`}>{task.title}</h1>
+              <p className={appPageDesc}>
+                <span className={appBadgeInfo}>{task.task_type}</span>
+                <span className="mx-2">•</span>
+                {task.status}
+              </p>
+            </div>
           </div>
-          <button onClick={handleDownload} className="text-xs border border-border px-3 py-1.5 rounded-lg flex items-center gap-1">
-            <Download size={14} /> Export CSV
-          </button>
-          <button onClick={() => window.confirm('Delete?') && deleteMutation.mutate()} className="text-red-600 p-1.5">
-            <Trash2 size={16} />
-          </button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button onClick={handleDownload} className={`${appBtnGhost} !text-xs !py-2`}>
+              <Download size={14} /> Export CSV
+            </button>
+            <button onClick={() => window.confirm('Delete?') && deleteMutation.mutate()} className={appBtnIconDanger}>
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
 
         {task.summary && (
-          <div className="bg-card border border-border rounded-xl p-5 text-sm text-muted-foreground">{task.summary}</div>
+          <div className={`${appGlassCard} text-sm text-[#6A6A60]`}>{task.summary}</div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="bg-[#0f172a] text-green-400 rounded-xl p-4 font-mono text-xs h-64 overflow-y-auto">
-            <div className="flex items-center gap-1 text-slate-400 mb-2 font-sans"><Terminal size={14} /> Logs</div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="bg-[#1A1A14] text-emerald-400 rounded-2xl p-4 font-mono text-xs h-64 overflow-y-auto border border-[#1A1A14]/20">
+            <div className="flex items-center gap-1 text-[#6A6A60] mb-2 font-sans"><Terminal size={14} /> Logs</div>
             {(task.logs || []).map((log, i) => <div key={i}>{log}</div>)}
             {(task.errors || []).map((err, i) => <div key={`e-${i}`} className="text-red-400">{err}</div>)}
           </div>
 
-          <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold text-sm mb-3 flex items-center gap-2"><Table size={16} /> Extracted Data ({task.results?.length || 0})</h2>
+          <div className={`lg:col-span-2 ${appGlassCard}`}>
+            <h2 className="font-semibold text-sm text-[#1A1A14] mb-3 flex items-center gap-2">
+              <Table size={16} /> Extracted Data ({task.results?.length || 0})
+            </h2>
             {!task.results?.length ? (
-              <p className="text-sm text-muted-foreground">No structured records extracted.</p>
+              <p className="text-sm text-[#6A6A60]">No structured records extracted.</p>
             ) : (
-              <div className="overflow-x-auto max-h-64 overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="bg-secondary">
-                      {columns.map((col) => <th key={col} className="p-2 text-left">{col}</th>)}
+              <div className={`${appTableWrap} !shadow-none overflow-x-auto max-h-64 overflow-y-auto`}>
+                <table className="w-full text-xs min-w-[400px]">
+                  <thead className={appTableHead}>
+                    <tr>
+                      {columns.map((col) => <th key={col} className={appTh}>{col}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {task.results.map((row, i) => (
-                      <tr key={i} className="border-b border-border">
-                        {columns.map((col) => <td key={col} className="p-2">{String(row[col] ?? '')}</td>)}
+                      <tr key={i} className={appTr}>
+                        {columns.map((col) => <td key={col} className={appTd}>{String(row[col] ?? '')}</td>)}
                       </tr>
                     ))}
                   </tbody>
@@ -111,9 +129,9 @@ export default function BrowserTaskPage() {
         </div>
 
         {task.report_text && (
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold mb-2">Report</h2>
-            <pre className="text-xs whitespace-pre-wrap">{task.report_text}</pre>
+          <div className={appGlassCard}>
+            <h2 className="font-semibold text-[#1A1A14] mb-2">Report</h2>
+            <pre className="text-xs text-[#6A6A60] whitespace-pre-wrap">{task.report_text}</pre>
           </div>
         )}
       </div>

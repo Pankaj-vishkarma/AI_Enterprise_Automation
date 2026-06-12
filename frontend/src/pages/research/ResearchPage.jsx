@@ -7,6 +7,11 @@ import { formatApiError } from '../../utils/apiError';
 import {
   Compass, Search, Loader, FileText, BarChart3, History, Download, Trash2,
 } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect,
+  appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading,
+  appTabActive, appTabInactive, appLabel,
+} from '../../styles/appStyles';
 
 export default function ResearchPage() {
   const queryClient = useQueryClient();
@@ -82,25 +87,23 @@ export default function ResearchPage() {
     <MainLayout>
       <div className="space-y-6 max-w-5xl mx-auto">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Compass size={32} className="text-primary" />
+          <h1 className={`${appPageTitle} flex items-center gap-2`}>
+            <Compass size={32} className="text-[#1A1A14]" />
             Business Research Hub
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className={appPageDesc}>
             Multi-agent market analysis powered by organizational knowledge, AI employees, and research tools.
           </p>
         </div>
 
-        <div className="flex gap-2 border-b border-border overflow-x-auto">
+        <div className="flex gap-2 border-b border-[#1A1A14]/10 overflow-x-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-4 py-2 text-sm font-medium border-b-2 whitespace-nowrap ${
-                  activeTab === tab.id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground'
-                }`}
+                className={`px-4 py-2 text-sm ${activeTab === tab.id ? appTabActive : appTabInactive}`}
               >
                 <Icon size={16} />{tab.label}
               </button>
@@ -109,20 +112,20 @@ export default function ResearchPage() {
         </div>
 
         {errorText && (
-          <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errorText}</div>
+          <div className={appError}>{errorText}</div>
         )}
 
         {activeTab === 'run' && (
           <div className="space-y-4">
-            <div className="bg-card border border-border rounded-xl p-6 space-y-4">
-              <h2 className="text-lg font-bold">Launch Research Request</h2>
+            <div className={`${appGlassCard} space-y-4`}>
+              <h2 className={appSectionTitle}>Launch Research Request</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Research Type</label>
+                  <label className={appLabel}>Research Type</label>
                   <select
                     value={researchType}
                     onChange={(e) => setResearchType(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-input text-sm"
+                    className={appSelect}
                   >
                     {Object.keys(templates).map((key) => (
                       <option key={key} value={key}>{key}</option>
@@ -130,7 +133,7 @@ export default function ResearchPage() {
                   </select>
                 </div>
                 <div className="flex items-end">
-                  <label className="flex items-center gap-2 text-sm">
+                  <label className="flex items-center gap-2 text-sm text-[#1A1A14]">
                     <input type="checkbox" checked={useBrowser} onChange={(e) => setUseBrowser(e.target.checked)} />
                     Include browser extraction (if URL in request)
                   </label>
@@ -143,12 +146,12 @@ export default function ResearchPage() {
                   onChange={(e) => setRequestText(e.target.value)}
                   placeholder="e.g. Analyze the AI market in India..."
                   disabled={runMutation.isPending}
-                  className="flex-1 px-4 py-3 border border-border rounded-xl bg-input text-sm"
+                  className={`flex-1 ${appInputPlain}`}
                 />
                 <button
                   type="submit"
                   disabled={runMutation.isPending || !requestText.trim()}
-                  className="bg-primary text-primary-foreground px-6 py-3 rounded-xl text-sm font-medium disabled:opacity-50 flex items-center gap-2"
+                  className={appBtnPrimary}
                 >
                   {runMutation.isPending ? <Loader className="animate-spin" size={16} /> : <Compass size={16} />}
                   Run
@@ -158,13 +161,13 @@ export default function ResearchPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {Object.entries(templates).map(([key, tpl]) => (
-                <div key={key} className="bg-card border border-border rounded-xl p-5 space-y-2">
-                  <h3 className="font-bold text-sm">{key}</h3>
-                  <p className="text-xs text-muted-foreground">{tpl.description}</p>
+                <div key={key} className={`${appGlassCard} space-y-2`}>
+                  <h3 className="font-bold text-sm text-[#1A1A14]">{key}</h3>
+                  <p className="text-xs text-[#6A6A60]">{tpl.description}</p>
                   <button
                     onClick={() => runResearch(tpl.example, key)}
                     disabled={runMutation.isPending}
-                    className="text-xs text-primary font-semibold hover:underline"
+                    className="text-xs text-[#1A1A14] font-semibold hover:underline"
                   >
                     Use template →
                   </button>
@@ -173,10 +176,10 @@ export default function ResearchPage() {
             </div>
 
             {runMutation.isPending && (
-              <div className="bg-card border border-border rounded-xl p-8 text-center">
-                <Loader className="animate-spin text-primary mx-auto mb-3" size={32} />
-                <p className="text-sm font-medium">Running multi-agent research pipeline...</p>
-                <p className="text-xs text-muted-foreground mt-1">Research → Analyst → Reviewer → Documentation agents</p>
+              <div className={appLoading}>
+                <Loader className="animate-spin text-[#1A1A14] mx-auto mb-3" size={32} />
+                <p className="text-sm font-medium text-[#1A1A14]">Running multi-agent research pipeline...</p>
+                <p className="text-xs text-[#6A6A60] mt-1">Research → Analyst → Reviewer → Documentation agents</p>
               </div>
             )}
           </div>
@@ -185,29 +188,31 @@ export default function ResearchPage() {
         {activeTab === 'library' && (
           <div className="space-y-4">
             {reportsLoading ? (
-              <Loader className="animate-spin text-primary mx-auto" size={24} />
+              <div className="flex justify-center py-8">
+                <Loader className="animate-spin text-[#1A1A14]" size={24} />
+              </div>
             ) : reports.length === 0 ? (
-              <div className="bg-card border border-border rounded-xl p-12 text-center text-muted-foreground">
+              <div className={`${appGlassCard} ${appEmpty}`}>
                 No saved reports yet. Run a research request to build your library.
               </div>
             ) : (
               reports.map((report) => (
-                <div key={report.id} className="bg-card border border-border rounded-xl p-5">
+                <div key={report.id} className={appGlassCard}>
                   <div className="flex justify-between items-start gap-4">
                     <div>
-                      <Link to={`/research/${report.id}`} className="font-bold text-foreground hover:text-primary">
+                      <Link to={`/research/${report.id}`} className="font-bold text-[#1A1A14] hover:underline">
                         {report.title}
                       </Link>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-[#6A6A60] mt-1">
                         {report.research_type} • {report.status} • {report.confidence_score != null ? `${report.confidence_score}% confidence` : ''}
                       </p>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => handleDownload(report)} className="p-1.5 hover:bg-secondary rounded-lg"><Download size={16} /></button>
-                      <button onClick={() => window.confirm('Delete?') && deleteMutation.mutate(report.id)} className="p-1.5 hover:bg-red-50 text-red-600 rounded-lg"><Trash2 size={16} /></button>
+                      <button onClick={() => handleDownload(report)} className={appBtnIcon}><Download size={16} /></button>
+                      <button onClick={() => window.confirm('Delete?') && deleteMutation.mutate(report.id)} className={appBtnIconDanger}><Trash2 size={16} /></button>
                     </div>
                   </div>
-                  {report.summary && <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{report.summary}</p>}
+                  {report.summary && <p className="text-xs text-[#6A6A60] mt-2 line-clamp-2">{report.summary}</p>}
                 </div>
               ))
             )}
@@ -223,17 +228,17 @@ export default function ResearchPage() {
               ['Avg Generation Time', metrics.average_execution_time_ms ? `${(metrics.average_execution_time_ms / 1000).toFixed(1)}s` : '—'],
               ['Failed', metrics.failed_reports ?? 0],
             ].map(([label, value]) => (
-              <div key={label} className="bg-card border border-border rounded-xl p-5">
-                <p className="text-xs text-muted-foreground uppercase">{label}</p>
-                <p className="text-2xl font-bold mt-1">{value}</p>
+              <div key={label} className={appGlassCard}>
+                <p className="text-xs text-[#6A6A60] uppercase">{label}</p>
+                <p className="text-2xl font-bold mt-1 text-[#1A1A14]">{value}</p>
               </div>
             ))}
           </div>
         )}
 
         {latestReport && activeTab === 'library' && (
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 text-sm">
-            Latest report saved. <Link to={`/research/${latestReport.id}`} className="text-primary font-semibold hover:underline">View full report →</Link>
+          <div className="bg-[#1A1A14]/5 border border-[#1A1A14]/10 rounded-2xl p-4 text-sm text-[#1A1A14]">
+            Latest report saved. <Link to={`/research/${latestReport.id}`} className="font-semibold hover:underline">View full report →</Link>
           </div>
         )}
       </div>

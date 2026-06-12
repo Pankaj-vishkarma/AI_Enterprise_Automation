@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Send, Loader, Bot, User, HelpCircle, Sparkles } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appGlassCard, appInputPlain, appBtnPrimary, appBtnGhost,
+} from '../../styles/appStyles';
 
 const SUGGESTED_QUESTIONS = [
   "What is the reimbursement policy?",
@@ -23,7 +26,6 @@ export default function AskAIPage() {
 
   const messagesEndRef = useRef(null);
 
-  // Auto scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
@@ -65,38 +67,37 @@ export default function AskAIPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto">
-        <div className="mb-4">
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Sparkles className="text-primary" size={28} />
+      <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto min-h-0">
+        <div className="mb-4 flex-shrink-0">
+          <h1 className={`${appPageTitle} flex items-center gap-2`}>
+            <Sparkles className="text-[#1A1A14]" size={24} />
             Knowledge Intelligence
           </h1>
-          <p className="text-muted-foreground mt-1">Query your uploaded business knowledge base using natural language AI</p>
+          <p className={appPageDesc}>Query your uploaded business knowledge base using natural language AI</p>
         </div>
 
-        {/* Chat area */}
-        <div className="flex-1 bg-card border border-border rounded-xl overflow-y-auto mb-4 p-6 space-y-4 shadow-sm">
+        <div className={`flex-1 ${appGlassCard} overflow-y-auto mb-4 !p-4 sm:!p-6 space-y-4 min-h-0`}>
           {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.type === 'ai' && (
-                <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                  <Bot className="text-primary" size={18} />
+                <div className="w-8 h-8 rounded-xl bg-[#1A1A14]/5 border border-[#1A1A14]/10 flex items-center justify-center flex-shrink-0">
+                  <Bot className="text-[#1A1A14]" size={18} />
                 </div>
               )}
               <div
-                className={`max-w-xl px-4 py-3 rounded-xl shadow-sm text-sm leading-relaxed ${
+                className={`max-w-xl px-4 py-3 rounded-xl text-sm leading-relaxed ${
                   msg.type === 'user'
-                    ? 'bg-primary text-primary-foreground rounded-tr-none'
-                    : 'bg-secondary text-secondary-foreground rounded-tl-none border border-border'
+                    ? 'bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] rounded-tr-none'
+                    : 'bg-white/50 border border-[#1A1A14]/10 text-[#1A1A14] rounded-tl-none'
                 }`}
               >
                 {msg.content}
               </div>
               {msg.type === 'user' && (
-                <div className="w-8 h-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center flex-shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] flex items-center justify-center flex-shrink-0">
                   <User size={18} />
                 </div>
               )}
@@ -104,11 +105,11 @@ export default function AskAIPage() {
           ))}
           {isLoading && (
             <div className="flex justify-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="text-primary" size={18} />
+              <div className="w-8 h-8 rounded-xl bg-[#1A1A14]/5 border border-[#1A1A14]/10 flex items-center justify-center flex-shrink-0">
+                <Bot className="text-[#1A1A14]" size={18} />
               </div>
-              <div className="bg-secondary text-secondary-foreground px-4 py-3 rounded-xl rounded-tl-none border border-border flex items-center gap-2 text-sm">
-                <Loader className="animate-spin text-primary" size={16} />
+              <div className="bg-white/50 border border-[#1A1A14]/10 text-[#6A6A60] px-4 py-3 rounded-xl rounded-tl-none flex items-center gap-2 text-sm">
+                <Loader className="animate-spin text-[#1A1A14]" size={16} />
                 Analyzing knowledge base documents...
               </div>
             </div>
@@ -116,19 +117,18 @@ export default function AskAIPage() {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Suggestion list */}
         {messages.length === 1 && !isLoading && (
-          <div className="mb-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
+          <div className="mb-4 flex-shrink-0">
+            <p className="text-xs font-semibold text-[#6A6A60] uppercase tracking-wider mb-2 flex items-center gap-1">
               <HelpCircle size={14} />
               Suggested Questions
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {SUGGESTED_QUESTIONS.map((q, i) => (
                 <button
                   key={i}
                   onClick={() => askQuestion(q)}
-                  className="text-left text-sm p-3 bg-card border border-border hover:border-primary/50 hover:bg-secondary/40 rounded-xl transition cursor-pointer text-foreground shadow-sm"
+                  className={`${appBtnGhost} !justify-start text-left text-sm !py-3`}
                 >
                   {q}
                 </button>
@@ -137,21 +137,16 @@ export default function AskAIPage() {
           </div>
         )}
 
-        {/* Input area */}
-        <form onSubmit={handleSubmit} className="flex gap-2">
+        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
           <input
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask something about reimbursement, leaves, refund, policies..."
             disabled={isLoading}
-            className="flex-1 px-4 py-3 border border-border rounded-xl bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 text-sm shadow-sm"
+            className={`flex-1 ${appInputPlain} disabled:opacity-50`}
           />
-          <button
-            type="submit"
-            disabled={isLoading || !query.trim()}
-            className="bg-primary text-primary-foreground px-6 py-3 rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 font-medium transition cursor-pointer shadow-sm"
-          >
+          <button type="submit" disabled={isLoading || !query.trim()} className={`${appBtnPrimary} sm:flex-shrink-0`}>
             <Send size={18} />
             Ask AI
           </button>

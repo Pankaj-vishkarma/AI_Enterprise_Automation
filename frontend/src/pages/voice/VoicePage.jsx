@@ -1,7 +1,11 @@
 import React, { useRef, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
-import { Mic, MicOff, Loader, MessageSquare, Volume2, Sparkles, AlertCircle, Play } from 'lucide-react';
+import { Mic, MicOff, Loader, MessageSquare, Volume2, Sparkles, Play } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost,
+  appBadgeActive, appBadgeWarning, appBadgeInfo, appEmpty,
+} from '../../styles/appStyles';
 
 const VOICE_EXCHANGES = {
   "What is the leave policy?": {
@@ -71,36 +75,37 @@ export default function VoicePage() {
     }
   };
 
+  const statusBadgeClass =
+    status === 'Listening' ? appBadgeActive :
+    status === 'Speaking' ? appBadgeInfo :
+    status === 'Thinking' ? appBadgeWarning :
+    appBadgeInfo;
+
   return (
     <MainLayout>
       <div className="space-y-6 max-w-4xl mx-auto flex flex-col h-[calc(100vh-120px)]">
         <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <Mic size={32} className="text-primary" />
+          <h1 className={`${appPageTitle} flex items-center gap-2`}>
+            <Mic size={32} className="text-[#1A1A14]" />
             Voice AI Platform
           </h1>
-          <p className="text-muted-foreground mt-1">Interact with your organization's knowledge base and support tickets using natural voice commands.</p>
+          <p className={appPageDesc}>Interact with your organization's knowledge base and support tickets using natural voice commands.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-0">
           {/* Wave Visualizer & Controller Column */}
-          <div className="md:col-span-1 bg-card border border-border rounded-xl p-6 flex flex-col justify-between items-center shadow-sm">
+          <div className={`md:col-span-1 ${appGlassCard} flex flex-col justify-between items-center !p-6`}>
             <div className="text-center w-full space-y-1">
-              <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                status === 'Listening' ? 'bg-green-100 text-green-800' :
-                status === 'Speaking' ? 'bg-blue-100 text-blue-800' :
-                status === 'Thinking' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
+              <span className={`inline-flex items-center gap-1.5 ${statusBadgeClass}`}>
                 <span className={`w-1.5 h-1.5 rounded-full ${
-                  status === 'Listening' ? 'bg-green-600 animate-ping' :
-                  status === 'Speaking' ? 'bg-blue-600 animate-bounce' :
-                  status === 'Thinking' ? 'bg-yellow-500 animate-pulse' :
-                  'bg-gray-500'
+                  status === 'Listening' ? 'bg-emerald-600 animate-ping' :
+                  status === 'Speaking' ? 'bg-[#1A1A14] animate-bounce' :
+                  status === 'Thinking' ? 'bg-amber-500 animate-pulse' :
+                  'bg-[#6A6A60]'
                 }`} />
                 {status}
               </span>
-              <p className="text-xs text-muted-foreground mt-1">Voice Session Status</p>
+              <p className="text-xs text-[#6A6A60] mt-1">Voice Session Status</p>
             </div>
 
             {/* Pulsing Audio Wave Visualizer */}
@@ -110,7 +115,7 @@ export default function VoicePage() {
                   {[...Array(6)].map((_, i) => (
                     <div 
                       key={i} 
-                      className="w-1.5 bg-primary rounded-full animate-[pulse_1s_infinite]" 
+                      className="w-1.5 bg-[#1A1A14] rounded-full animate-[pulse_1s_infinite]" 
                       style={{ 
                         height: `${Math.random() * 50 + 10}px`,
                         animationDelay: `${i * 0.15}s`,
@@ -126,7 +131,7 @@ export default function VoicePage() {
                   {[...Array(6)].map((_, i) => (
                     <div 
                       key={i} 
-                      className="w-1.5 bg-accent rounded-full animate-bounce" 
+                      className="w-1.5 bg-[#4B4B42] rounded-full animate-bounce" 
                       style={{ 
                         height: `${Math.random() * 80 + 20}px`,
                         animationDelay: `${i * 0.08}s`
@@ -137,11 +142,11 @@ export default function VoicePage() {
               )}
 
               {isActive && status === 'Thinking' && (
-                <Loader className="animate-spin text-primary" size={32} />
+                <Loader className="animate-spin text-[#1A1A14]" size={32} />
               )}
 
               {!isActive && (
-                <div className="w-16 h-16 rounded-full bg-secondary border border-border flex items-center justify-center text-muted-foreground">
+                <div className="w-16 h-16 rounded-full bg-[#1A1A14]/5 border border-[#1A1A14]/10 flex items-center justify-center text-[#6A6A60]">
                   <MicOff size={28} />
                 </div>
               )}
@@ -150,10 +155,10 @@ export default function VoicePage() {
             {/* Start/Stop Button */}
             <button
               onClick={toggleSession}
-              className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition cursor-pointer text-sm shadow-sm ${
+              className={`w-full py-3 rounded-xl font-semibold flex items-center justify-center gap-2 transition cursor-pointer text-sm ${
                 isActive
-                  ? 'bg-destructive text-destructive-foreground hover:bg-destructive/95'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/95'
+                  ? 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                  : appBtnPrimary
               }`}
             >
               {isActive ? <MicOff size={16} /> : <Mic size={16} />}
@@ -162,11 +167,11 @@ export default function VoicePage() {
           </div>
 
           {/* Transcript & Suggested Commands Column */}
-          <div className="md:col-span-2 flex flex-col justify-between border border-border rounded-xl bg-card p-6 shadow-sm overflow-hidden min-h-0">
+          <div className={`md:col-span-2 flex flex-col justify-between ${appGlassCard} overflow-hidden min-h-0 !p-6`}>
             <div className="flex-1 flex flex-col justify-between overflow-hidden">
-              <div className="border-b border-border pb-3 mb-4">
-                <h3 className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                  <MessageSquare size={16} className="text-primary" />
+              <div className="border-b border-[#1A1A14]/10 pb-3 mb-4">
+                <h3 className={`${appSectionTitle} !text-sm flex items-center gap-1.5`}>
+                  <MessageSquare size={16} className="text-[#1A1A14]" />
                   Live Voice Transcript Log
                 </h3>
               </div>
@@ -174,21 +179,21 @@ export default function VoicePage() {
               {/* Transcript list */}
               <div className="flex-1 overflow-y-auto space-y-4 pr-1 select-text scrollbar-thin max-h-72">
                 {conversations.length === 0 ? (
-                  <div className="h-full flex items-center justify-center text-muted-foreground text-sm italic">
+                  <div className={`${appEmpty} !p-4 italic`}>
                     Start a session to capture real-time speech-to-text transcriptions.
                   </div>
                 ) : (
                   conversations.map((msg, i) => (
                     <div key={i} className={`flex gap-3 ${msg.type === 'user' ? 'justify-end' : 'justify-start'}`}>
                       {msg.type === 'ai' && (
-                        <div className="w-6 h-6 rounded bg-primary/10 flex items-center justify-center flex-shrink-0 text-primary">
+                        <div className="w-6 h-6 rounded bg-[#1A1A14]/5 border border-[#1A1A14]/10 flex items-center justify-center flex-shrink-0 text-[#1A1A14]">
                           <Volume2 size={14} />
                         </div>
                       )}
                       <div className={`max-w-md p-3 rounded-lg text-xs leading-relaxed ${
                         msg.type === 'user'
-                          ? 'bg-primary text-primary-foreground rounded-tr-none'
-                          : 'bg-secondary text-secondary-foreground rounded-tl-none border border-border'
+                          ? 'bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] rounded-tr-none'
+                          : 'bg-white/50 border border-[#1A1A14]/10 text-[#1A1A14] rounded-tl-none'
                       }`}>
                         {msg.text}
                       </div>
@@ -200,9 +205,9 @@ export default function VoicePage() {
 
             {/* Click-to-Speak list */}
             {isActive && status === 'Listening' && (
-              <div className="pt-4 border-t border-border mt-4">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1">
-                  <Sparkles size={11} className="text-primary" />
+              <div className="pt-4 border-t border-[#1A1A14]/10 mt-4">
+                <p className="text-[10px] font-semibold text-[#6A6A60] uppercase tracking-wider mb-2 flex items-center gap-1">
+                  <Sparkles size={11} className="text-[#1A1A14]" />
                   Suggested Voice Commands
                 </p>
                 <div className="flex flex-col gap-1.5">
@@ -210,10 +215,10 @@ export default function VoicePage() {
                     <button
                       key={cmd}
                       onClick={() => submitVoiceQuery(cmd)}
-                      className="text-left text-xs p-2 bg-secondary/50 border border-border hover:border-primary/50 hover:bg-secondary rounded-lg transition text-foreground cursor-pointer flex items-center justify-between"
+                      className={`text-left text-xs p-2 ${appBtnGhost} !justify-between hover:border-[#1A1A14]/25`}
                     >
                       <span>"{cmd}"</span>
-                      <Play size={10} className="text-primary" />
+                      <Play size={10} className="text-[#1A1A14]" />
                     </button>
                   ))}
                 </div>

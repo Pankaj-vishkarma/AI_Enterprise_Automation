@@ -4,6 +4,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { researchAPI } from '../../api/research';
 import { ArrowLeft, Download, Loader, Trash2, BookOpen, Link2 } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger,
+  appEmpty, appBadgeInfo,
+} from '../../styles/appStyles';
 
 export default function ResearchReportPage() {
   const { id } = useParams();
@@ -37,7 +41,7 @@ export default function ResearchReportPage() {
   if (isLoading) {
     return (
       <MainLayout>
-        <div className="flex justify-center py-16"><Loader className="animate-spin text-primary" size={32} /></div>
+        <div className="flex justify-center py-16"><Loader className="animate-spin text-[#1A1A14]" size={32} /></div>
       </MainLayout>
     );
   }
@@ -45,9 +49,9 @@ export default function ResearchReportPage() {
   if (!report) {
     return (
       <MainLayout>
-        <div className="text-center py-16">
-          <p className="text-muted-foreground">Report not found.</p>
-          <Link to="/research" className="text-primary mt-4 inline-block hover:underline">Back</Link>
+        <div className={appEmpty}>
+          <p>Report not found.</p>
+          <Link to="/research" className="text-[#1A1A14] mt-4 inline-block font-medium hover:underline">Back</Link>
         </div>
       </MainLayout>
     );
@@ -57,68 +61,74 @@ export default function ResearchReportPage() {
     <MainLayout>
       <div className="space-y-6 max-w-4xl mx-auto">
         <div className="flex items-center gap-3">
-          <Link to="/research" className="text-muted-foreground hover:text-foreground"><ArrowLeft size={20} /></Link>
+          <Link to="/research" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5">
+            <ArrowLeft size={20} />
+          </Link>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-foreground">{report.title}</h1>
-            <p className="text-sm text-muted-foreground">{report.research_type} • {report.status}</p>
+            <h1 className={appPageTitle}>{report.title}</h1>
+            <p className={appPageDesc}>
+              <span className={appBadgeInfo}>{report.research_type}</span>
+              <span className="mx-2">•</span>
+              {report.status}
+            </p>
           </div>
-          <button onClick={handleDownload} className="flex items-center gap-1 text-xs border border-border px-3 py-1.5 rounded-lg">
+          <button onClick={handleDownload} className={`${appBtnGhost} !text-xs !py-2`}>
             <Download size={14} /> Export
           </button>
           <button
             onClick={() => window.confirm('Delete this report?') && deleteMutation.mutate()}
-            className="text-red-600 p-1.5 hover:bg-red-50 rounded-lg"
+            className={appBtnIconDanger}
           >
             <Trash2 size={16} />
           </button>
         </div>
 
         {report.summary && (
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold text-sm mb-2">Executive Summary</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.summary}</p>
+          <div className={appGlassCard}>
+            <h2 className="font-semibold text-sm text-[#1A1A14] mb-2">Executive Summary</h2>
+            <p className="text-sm text-[#6A6A60] whitespace-pre-wrap">{report.summary}</p>
           </div>
         )}
 
         <div className="grid grid-cols-3 gap-3 text-center text-xs">
-          <div className="bg-card border border-border rounded-lg p-3">
-            <p className="text-muted-foreground">Confidence</p>
-            <p className="font-bold text-foreground">{report.confidence_score ?? '—'}%</p>
+          <div className={`${appGlassCard} !p-3`}>
+            <p className="text-[#6A6A60]">Confidence</p>
+            <p className="font-bold text-[#1A1A14]">{report.confidence_score ?? '—'}%</p>
           </div>
-          <div className="bg-card border border-border rounded-lg p-3">
-            <p className="text-muted-foreground">Generation Time</p>
-            <p className="font-bold text-foreground">{report.execution_time_ms ? `${(report.execution_time_ms / 1000).toFixed(1)}s` : '—'}</p>
+          <div className={`${appGlassCard} !p-3`}>
+            <p className="text-[#6A6A60]">Generation Time</p>
+            <p className="font-bold text-[#1A1A14]">{report.execution_time_ms ? `${(report.execution_time_ms / 1000).toFixed(1)}s` : '—'}</p>
           </div>
-          <div className="bg-card border border-border rounded-lg p-3">
-            <p className="text-muted-foreground">Agents Used</p>
-            <p className="font-bold text-foreground">{(report.agent_usage || []).length}</p>
+          <div className={`${appGlassCard} !p-3`}>
+            <p className="text-[#6A6A60]">Agents Used</p>
+            <p className="font-bold text-[#1A1A14]">{(report.agent_usage || []).length}</p>
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-          <h2 className="font-semibold flex items-center gap-2"><BookOpen size={18} /> Final Report</h2>
-          <div className="text-sm whitespace-pre-wrap leading-relaxed text-foreground bg-input border border-border rounded-lg p-4 max-h-[400px] overflow-y-auto">
+        <div className={`${appGlassCard} space-y-3`}>
+          <h2 className="font-semibold text-[#1A1A14] flex items-center gap-2"><BookOpen size={18} /> Final Report</h2>
+          <div className="text-sm whitespace-pre-wrap leading-relaxed text-[#1A1A14] bg-white/50 border border-[#1A1A14]/10 rounded-xl p-4 max-h-[400px] overflow-y-auto">
             {report.final_report}
           </div>
         </div>
 
         {report.recommendations && (
-          <div className="bg-card border border-border rounded-xl p-5">
-            <h2 className="font-semibold text-sm mb-2">Recommendations</h2>
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap">{report.recommendations}</p>
+          <div className={appGlassCard}>
+            <h2 className="font-semibold text-sm text-[#1A1A14] mb-2">Recommendations</h2>
+            <p className="text-sm text-[#6A6A60] whitespace-pre-wrap">{report.recommendations}</p>
           </div>
         )}
 
-        <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-          <h2 className="font-semibold flex items-center gap-2"><Link2 size={18} /> Citations & Sources</h2>
+        <div className={`${appGlassCard} space-y-3`}>
+          <h2 className="font-semibold text-[#1A1A14] flex items-center gap-2"><Link2 size={18} /> Citations & Sources</h2>
           {(report.citations || []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">No citations recorded.</p>
+            <p className="text-sm text-[#6A6A60]">No citations recorded.</p>
           ) : (
             <div className="space-y-2">
               {report.citations.map((c) => (
-                <div key={c.id} className="text-xs border border-border rounded-lg p-3 bg-secondary/20">
-                  <p className="font-medium text-foreground">[{c.id}] {c.reference}</p>
-                  <p className="text-muted-foreground mt-1">{c.excerpt}</p>
+                <div key={c.id} className="text-xs border border-[#1A1A14]/10 rounded-xl p-3 bg-[#1A1A14]/[0.03]">
+                  <p className="font-medium text-[#1A1A14]">[{c.id}] {c.reference}</p>
+                  <p className="text-[#6A6A60] mt-1">{c.excerpt}</p>
                 </div>
               ))}
             </div>
@@ -126,12 +136,12 @@ export default function ResearchReportPage() {
         </div>
 
         {(report.intermediate_findings || []).length > 0 && (
-          <div className="bg-card border border-border rounded-xl p-6 space-y-3">
-            <h2 className="font-semibold">Agent Pipeline</h2>
+          <div className={`${appGlassCard} space-y-3`}>
+            <h2 className="font-semibold text-[#1A1A14]">Agent Pipeline</h2>
             {report.intermediate_findings.map((step, i) => (
-              <div key={i} className="border border-border rounded-lg p-3 text-xs">
-                <p className="font-semibold">{step.agent_name} {step.employee_name ? `(${step.employee_name})` : ''} — {step.status}</p>
-                <p className="text-muted-foreground mt-1 whitespace-pre-wrap line-clamp-4">{step.output}</p>
+              <div key={i} className="border border-[#1A1A14]/10 rounded-xl p-3 text-xs">
+                <p className="font-semibold text-[#1A1A14]">{step.agent_name} {step.employee_name ? `(${step.employee_name})` : ''} — {step.status}</p>
+                <p className="text-[#6A6A60] mt-1 whitespace-pre-wrap line-clamp-4">{step.output}</p>
               </div>
             ))}
           </div>

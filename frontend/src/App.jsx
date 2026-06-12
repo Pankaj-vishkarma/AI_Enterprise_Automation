@@ -50,8 +50,8 @@ import NotFoundPage from './pages/NotFoundPage';
 
 // Loading component
 const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+  <div className="flex items-center justify-center min-h-screen bg-[#F1F0E3]">
+    <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#1A1A14]/10 border-t-[#1A1A14]" />
   </div>
 );
 

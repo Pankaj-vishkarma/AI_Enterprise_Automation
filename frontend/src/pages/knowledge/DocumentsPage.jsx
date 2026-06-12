@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { knowledgeAPI } from '../../api/knowledge';
-import { Plus, Search, Upload, Trash2, X, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Upload, Trash2, X, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnGhost, appBtnIconDanger,
+  appGlassCard, appEmpty, appModalOverlay, appModal, appError, appInputPlain, appSelect,
+  appLabel, appPagination, appBadgeActive, appBadgeWarning,
+} from '../../styles/appStyles';
 
 const SUPPORTED_TYPES = [
   "Employee Handbooks",
@@ -126,14 +131,14 @@ export default function DocumentsPage() {
     <MainLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Knowledge Documents</h1>
-          <p className="text-muted-foreground mt-2">Manage your organization's knowledge base documents</p>
+          <h1 className={appPageTitle}>Knowledge Documents</h1>
+          <p className={appPageDesc}>Manage your organization&apos;s knowledge base documents</p>
         </div>
 
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex-1 max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 text-muted-foreground" size={20} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
               <input
                 type="text"
                 placeholder="Search documents..."
@@ -142,69 +147,66 @@ export default function DocumentsPage() {
                   setSearchTerm(e.target.value);
                   setPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 border border-border rounded-lg bg-input focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                className={appInputWithIcon}
               />
             </div>
           </div>
-          <button 
-            onClick={() => setIsUploadOpen(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition cursor-pointer"
-          >
-            <Upload size={20} />
+          <button onClick={() => setIsUploadOpen(true)} className={appBtnPrimary}>
+            <Upload size={18} />
             Upload Document
           </button>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {isLoading ? (
-            <div className="col-span-full text-center py-12 flex justify-center items-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="col-span-full flex justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#1A1A14]/10 border-t-[#1A1A14]" />
             </div>
           ) : documents.length === 0 ? (
-            <div className="col-span-full text-center py-12 bg-card border border-border border-dashed rounded-lg text-muted-foreground">
+            <div className={`col-span-full ${appEmpty} border border-dashed border-[#1A1A14]/15 rounded-2xl`}>
               No active documents found. Upload a file to populate your knowledge base.
             </div>
           ) : (
             documents.map((doc) => (
-              <div key={doc.id} className="bg-card border border-border rounded-lg p-6 hover:shadow-md transition relative flex flex-col justify-between">
+              <div key={doc.id} className={`${appGlassCard} relative flex flex-col justify-between`}>
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-4">
                     <div className="flex items-center gap-2">
-                      <FileText className="text-primary flex-shrink-0" size={24} />
-                      <h3 className="text-lg font-semibold text-foreground line-clamp-2" title={doc.title}>{doc.title}</h3>
+                      <FileText className="text-[#1A1A14] flex-shrink-0" size={22} />
+                      <h3 className="text-base font-semibold text-[#1A1A14] line-clamp-2" title={doc.title}>{doc.title}</h3>
                     </div>
                     <button 
                       onClick={() => handleDelete(doc.id)}
-                      className="text-destructive hover:bg-red-50 p-2 rounded-lg transition cursor-pointer"
+                      className={appBtnIconDanger}
                       title="Disable document"
                     >
                       <Trash2 size={18} />
                     </button>
                   </div>
 
-                  <div className="space-y-2 text-sm text-muted-foreground">
-                    <p className="truncate"><strong className="text-foreground">File:</strong> {doc.file_name}</p>
-                    <p><strong className="text-foreground">Type:</strong> {doc.document_type}</p>
+                  <div className="space-y-2 text-sm text-[#6A6A60]">
+                    <p className="truncate"><strong className="text-[#1A1A14]">File:</strong> {doc.file_name}</p>
+                    <p><strong className="text-[#1A1A14]">Type:</strong> {doc.document_type}</p>
                     <div className="flex items-center gap-1">
-                      <strong className="text-foreground">Status:</strong>
-                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                      <strong className="text-[#1A1A14]">Status:</strong>
+                      <span className={
                         doc.status === 'processed' || doc.status === 'active' || doc.status === 'ingest_queued'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}>
+                          ? appBadgeActive
+                          : appBadgeWarning
+                      }>
                         {doc.status}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground flex justify-between items-center">
+                <div className="mt-4 border-t border-[#1A1A14]/10 pt-4 text-xs text-[#6A6A60] flex justify-between items-center">
                   <span>ID: #{doc.id}</span>
                   <div className="flex items-center gap-2">
                     {doc.status === 'failed' && (
                       <button
                         onClick={() => retryMutation.mutate(doc.id)}
-                        className="text-primary hover:underline inline-flex items-center gap-1"
+                        className="text-[#1A1A14] hover:underline inline-flex items-center gap-1 font-medium"
                       >
                         <RefreshCw size={12} />
                         Retry
@@ -220,23 +222,15 @@ export default function DocumentsPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="px-6 py-4 flex items-center justify-between border-t border-border mt-4">
-            <span className="text-sm text-muted-foreground">
+          <div className="py-4 flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+            <span className="text-sm text-[#6A6A60]">
               Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total} documents
             </span>
             <div className="flex gap-2">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage(p => p - 1)}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-secondary disabled:opacity-50 transition cursor-pointer text-foreground"
-              >
+              <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className={appPagination}>
                 Previous
               </button>
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage(p => p + 1)}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-secondary disabled:opacity-50 transition cursor-pointer text-foreground"
-              >
+              <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className={appPagination}>
                 Next
               </button>
             </div>
@@ -245,48 +239,34 @@ export default function DocumentsPage() {
 
         {/* Upload Modal */}
         {isUploadOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md overflow-hidden">
-              <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-secondary">
-                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <Upload size={20} className="text-primary" />
+          <div className={appModalOverlay}>
+            <div className={`${appModal} max-w-md`} onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-[#1A1A14] flex items-center gap-2">
+                  <Upload size={20} />
                   Upload Document
                 </h2>
-                <button 
-                  onClick={() => setIsUploadOpen(false)}
-                  className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition cursor-pointer"
-                >
+                <button onClick={() => setIsUploadOpen(false)} className="text-[#6A6A60] hover:text-[#1A1A14] p-1 rounded-lg hover:bg-[#1A1A14]/5">
                   <X size={20} />
                 </button>
               </div>
 
-              <form onSubmit={handleUploadSubmit} className="p-6 space-y-4">
+              <form onSubmit={handleUploadSubmit} className="space-y-4">
                 {uploadError && (
-                  <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex items-center gap-2">
+                  <div className={`${appError} flex items-center gap-2`}>
                     <AlertCircle size={16} className="flex-shrink-0" />
                     <span>{uploadError}</span>
                   </div>
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Document Title</label>
-                  <input
-                    type="text"
-                    required
-                    value={uploadTitle}
-                    onChange={(e) => setUploadTitle(e.target.value)}
-                    placeholder="Enter document title"
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  />
+                  <label className={appLabel}>Document Title</label>
+                  <input type="text" required value={uploadTitle} onChange={(e) => setUploadTitle(e.target.value)} placeholder="Enter document title" className={appInputPlain} />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Document Type</label>
-                  <select
-                    value={uploadType}
-                    onChange={(e) => setUploadType(e.target.value)}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
+                  <label className={appLabel}>Document Type</label>
+                  <select value={uploadType} onChange={(e) => setUploadType(e.target.value)} className={appSelect}>
                     {SUPPORTED_TYPES.map(type => (
                       <option key={type} value={type}>{type}</option>
                     ))}
@@ -294,35 +274,19 @@ export default function DocumentsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Choose File (PDF, DOCX, TXT)</label>
-                  <div className="border border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:bg-secondary transition relative">
-                    <input
-                      type="file"
-                      required
-                      accept=".pdf,.docx,.txt"
-                      onChange={handleFileChange}
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                    />
-                    <Upload className="mx-auto text-muted-foreground mb-2" size={24} />
-                    <span className="text-sm text-muted-foreground truncate block">
+                  <label className={appLabel}>Choose File (PDF, DOCX, TXT)</label>
+                  <div className="border border-dashed border-[#1A1A14]/15 rounded-xl p-4 text-center cursor-pointer hover:bg-[#1A1A14]/5 transition relative">
+                    <input type="file" required accept=".pdf,.docx,.txt" onChange={handleFileChange} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    <Upload className="mx-auto text-[#6A6A60] mb-2" size={24} />
+                    <span className="text-sm text-[#6A6A60] truncate block">
                       {selectedFile ? selectedFile.name : 'Click to browse or drag & drop'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex gap-3 justify-end pt-4 border-t border-border">
-                  <button
-                    type="button"
-                    onClick={() => setIsUploadOpen(false)}
-                    className="px-4 py-2 border border-border rounded-lg hover:bg-secondary transition cursor-pointer text-foreground"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isUploading || !selectedFile}
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50 transition flex items-center gap-2 cursor-pointer"
-                  >
+                <div className="flex gap-3 justify-end pt-4 border-t border-[#1A1A14]/10">
+                  <button type="button" onClick={() => setIsUploadOpen(false)} className={appBtnGhost}>Cancel</button>
+                  <button type="submit" disabled={isUploading || !selectedFile} className={appBtnPrimary}>
                     {isUploading ? 'Uploading...' : 'Submit'}
                   </button>
                 </div>

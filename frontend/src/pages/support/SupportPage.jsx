@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
-import { LifeBuoy, Plus, Sparkles, MessageCircle, AlertTriangle, ArrowRight, X, Heart, Meh, Frown, CheckCircle } from 'lucide-react';
+import { LifeBuoy, Plus, Sparkles, MessageCircle, AlertTriangle, X, Heart, Meh, Frown, CheckCircle } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appBtnPrimary, appBtnGhost, appBtnIcon,
+  appGlassCard, appCardPadding, appInputPlain, appSelect, appLabel,
+  appModalOverlay, appModal, appBadgeError, appBadgeActive, appBadgeWarning,
+} from '../../styles/appStyles';
 
 const INITIAL_TICKETS = [
   {
@@ -113,18 +118,18 @@ export default function SupportPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-6xl mx-auto flex flex-col h-[calc(100vh-120px)]">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-              <LifeBuoy size={32} className="text-primary" />
+      <div className="space-y-6 max-w-6xl mx-auto flex flex-col h-[calc(100vh-120px)] min-w-0 overflow-x-hidden">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+          <div className="min-w-0">
+            <h1 className={`${appPageTitle} flex items-center gap-2`}>
+              <LifeBuoy size={32} className="text-[#1A1A14] flex-shrink-0" />
               Customer Support Desk
             </h1>
-            <p className="text-muted-foreground mt-1">Manage client tickets, categorize issues, evaluate customer sentiment, and send recommended AI resolutions.</p>
+            <p className={appPageDesc}>Manage client tickets, categorize issues, evaluate customer sentiment, and send recommended AI resolutions.</p>
           </div>
           <button
             onClick={() => setIsCreateOpen(true)}
-            className="flex items-center gap-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition cursor-pointer font-semibold text-sm"
+            className={`${appBtnPrimary} flex-shrink-0`}
           >
             <Plus size={18} />
             Create Ticket
@@ -132,47 +137,47 @@ export default function SupportPage() {
         </div>
 
         {/* Kanban Board Container */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-0 overflow-y-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
           {["New", "In Progress", "Resolved"].map(colStatus => {
             const colTickets = tickets.filter(t => t.status === colStatus);
             return (
-              <div key={colStatus} className="bg-secondary/20 border border-border rounded-xl p-4 flex flex-col h-full min-h-[300px]">
-                <div className="flex justify-between items-center mb-4 border-b border-border pb-2">
-                  <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${
+              <div key={colStatus} className={`${appGlassCard} !p-4 flex flex-col h-full min-h-[300px] min-w-0`}>
+                <div className="flex justify-between items-center mb-4 border-b border-[#1A1A14]/10 pb-2">
+                  <h3 className="font-bold text-sm text-[#1A1A14] flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                       colStatus === 'New' ? 'bg-red-500' :
-                      colStatus === 'In Progress' ? 'bg-primary' :
-                      'bg-green-500'
+                      colStatus === 'In Progress' ? 'bg-[#1A1A14]' :
+                      'bg-emerald-500'
                     }`} />
                     {colStatus} Tickets
                   </h3>
-                  <span className="bg-secondary text-secondary-foreground text-xs px-2.5 py-0.5 rounded-full font-bold">
+                  <span className="bg-[#1A1A14]/10 text-[#1A1A14] text-xs px-2.5 py-0.5 rounded-full font-bold">
                     {colTickets.length}
                   </span>
                 </div>
 
                 {/* Ticket cards */}
-                <div className="space-y-3 overflow-y-auto flex-1 pr-1">
+                <div className="space-y-3 overflow-y-auto flex-1 pr-1 min-w-0">
                   {colTickets.map(ticket => (
                     <div
                       key={ticket.id}
                       onClick={() => setSelectedTicket(ticket)}
-                      className={`bg-card border rounded-xl p-4 shadow-sm hover:shadow-md hover:border-primary transition cursor-pointer space-y-3 ${
-                        selectedTicket?.id === ticket.id ? 'border-primary ring-1 ring-primary' : 'border-border'
+                      className={`bg-white/50 border rounded-xl p-4 shadow-sm hover:shadow-md hover:border-[#1A1A14]/25 transition cursor-pointer space-y-3 min-w-0 ${
+                        selectedTicket?.id === ticket.id ? 'border-[#1A1A14]/30 ring-1 ring-[#1A1A14]/20' : 'border-[#1A1A14]/10'
                       }`}
                     >
-                      <div className="flex justify-between items-start gap-1">
-                        <span className="text-[10px] font-bold text-muted-foreground">{ticket.id}</span>
-                        <div className="flex gap-1.5 items-center">
+                      <div className="flex justify-between items-start gap-1 min-w-0">
+                        <span className="text-[10px] font-bold text-[#6A6A60]">{ticket.id}</span>
+                        <div className="flex gap-1.5 items-center flex-shrink-0">
                           {ticket.escalated && (
-                            <span className="text-[9px] bg-red-100 text-red-800 font-semibold px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                            <span className={`${appBadgeError} text-[9px] font-semibold px-2 py-0.5 flex items-center gap-0.5`}>
                               <AlertTriangle size={8} /> Esc
                             </span>
                           )}
                           <span className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                            ticket.sentiment === 'Positive' ? 'bg-green-50 text-green-700' :
-                            ticket.sentiment === 'Negative' ? 'bg-red-50 text-red-700' :
-                            'bg-yellow-50 text-yellow-700'
+                            ticket.sentiment === 'Positive' ? appBadgeActive :
+                            ticket.sentiment === 'Negative' ? appBadgeError :
+                            appBadgeWarning
                           }`}>
                             {sentimentIcon(ticket.sentiment)}
                             {ticket.sentiment}
@@ -180,18 +185,18 @@ export default function SupportPage() {
                         </div>
                       </div>
 
-                      <h4 className="text-xs font-bold text-foreground line-clamp-2 leading-relaxed">{ticket.title}</h4>
-                      <p className="text-[10px] text-muted-foreground truncate">{ticket.customer}</p>
+                      <h4 className="text-xs font-bold text-[#1A1A14] line-clamp-2 leading-relaxed">{ticket.title}</h4>
+                      <p className="text-[10px] text-[#6A6A60] truncate">{ticket.customer}</p>
 
-                      <div className="flex justify-between items-center pt-2 border-t border-border">
-                        <span className="text-[9px] text-primary font-bold bg-primary/5 px-2 py-0.5 rounded">
+                      <div className="flex justify-between items-center pt-2 border-t border-[#1A1A14]/10">
+                        <span className="text-[9px] text-[#1A1A14] font-bold bg-[#1A1A14]/5 px-2 py-0.5 rounded">
                           {ticket.category}
                         </span>
                       </div>
                     </div>
                   ))}
                   {colTickets.length === 0 && (
-                    <div className="h-32 border border-dashed border-border rounded-xl flex items-center justify-center text-xs text-muted-foreground italic">
+                    <div className="h-32 border border-dashed border-[#1A1A14]/15 rounded-xl flex items-center justify-center text-xs text-[#6A6A60] italic">
                       No tickets in {colStatus.toLowerCase()}
                     </div>
                   )}
@@ -203,30 +208,30 @@ export default function SupportPage() {
 
         {/* Ticket Drawer Details (Sidebar Drawer when selected) */}
         {selectedTicket && (
-          <div className="fixed inset-y-0 right-0 z-40 w-full max-w-md bg-card border-l border-border shadow-2xl flex flex-col animate-[slide-in_0.3s]">
-            <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-secondary mt-16 md:mt-0">
-              <div>
-                <span className="text-[10px] font-bold text-muted-foreground">{selectedTicket.id}</span>
-                <h3 className="font-bold text-sm text-foreground truncate max-w-[250px]">{selectedTicket.title}</h3>
+          <div className="fixed inset-y-0 right-0 z-40 w-full max-w-md bg-white/90 backdrop-blur-md border-l border-[#1A1A14]/10 shadow-[0_16px_48px_-12px_rgba(26,26,20,0.2)] flex flex-col animate-[slide-in_0.3s] min-w-0">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#1A1A14]/10 bg-[#1A1A14]/[0.04] mt-16 md:mt-0 gap-3 min-w-0">
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-[#6A6A60]">{selectedTicket.id}</span>
+                <h3 className="font-bold text-sm text-[#1A1A14] truncate">{selectedTicket.title}</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedTicket(null)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition cursor-pointer"
+                className={appBtnIcon}
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 min-w-0">
               {/* Customer info */}
               <div className="space-y-1">
-                <p className="text-xs font-bold text-foreground uppercase tracking-wider">Customer Details</p>
-                <div className="bg-secondary/40 border border-border p-3 rounded-lg text-xs space-y-1 text-foreground">
+                <p className="text-xs font-bold text-[#1A1A14] uppercase tracking-wider">Customer Details</p>
+                <div className="bg-[#1A1A14]/[0.04] border border-[#1A1A14]/10 p-3 rounded-xl text-xs space-y-1 text-[#1A1A14]">
                   <p><strong>Email:</strong> {selectedTicket.customer}</p>
                   <p><strong>Category:</strong> {selectedTicket.category}</p>
                   <p className="flex items-center gap-1.5">
-                    <strong>Sentiment:</strong> 
-                    {sentimentIcon(selectedTicket.sentiment)} 
+                    <strong>Sentiment:</strong>
+                    {sentimentIcon(selectedTicket.sentiment)}
                     <span>{selectedTicket.sentiment}</span>
                   </p>
                 </div>
@@ -234,26 +239,26 @@ export default function SupportPage() {
 
               {/* Message details */}
               <div className="space-y-1">
-                <p className="text-xs font-bold text-foreground uppercase tracking-wider">Inquiry Message</p>
-                <div className="bg-secondary/20 border border-border p-3 rounded-lg text-xs leading-relaxed text-foreground whitespace-pre-wrap select-text">
+                <p className="text-xs font-bold text-[#1A1A14] uppercase tracking-wider">Inquiry Message</p>
+                <div className="bg-[#1A1A14]/[0.03] border border-[#1A1A14]/10 p-3 rounded-xl text-xs leading-relaxed text-[#1A1A14] whitespace-pre-wrap select-text">
                   {selectedTicket.message}
                 </div>
               </div>
 
               {/* AI Recommended Response */}
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2.5">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-primary">
+              <div className="bg-[#1A1A14]/5 border border-[#1A1A14]/15 rounded-xl p-4 space-y-2.5">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-[#1A1A14]">
                   <Sparkles size={14} />
                   AI Suggested Response Resolution
                 </div>
-                <div className="bg-input border border-border p-3 rounded-lg text-xs leading-relaxed text-foreground select-text">
+                <div className="bg-white/50 border border-[#1A1A14]/10 p-3 rounded-xl text-xs leading-relaxed text-[#1A1A14] select-text">
                   {selectedTicket.aiRecommendation}
                 </div>
-                <div className="flex gap-2 justify-end">
+                <div className="flex flex-wrap gap-2 justify-end">
                   {!selectedTicket.escalated && (
                     <button
                       onClick={() => handleEscalate(selectedTicket.id)}
-                      className="px-2.5 py-1 bg-secondary text-foreground hover:bg-secondary/80 rounded border border-border text-[10px] font-bold cursor-pointer transition flex items-center gap-0.5"
+                      className={`${appBtnGhost} !px-2.5 !py-1 !text-[10px] !font-bold`}
                     >
                       Escalate to Manager
                     </button>
@@ -261,7 +266,7 @@ export default function SupportPage() {
                   {selectedTicket.status !== 'Resolved' && (
                     <button
                       onClick={() => handleMoveStatus(selectedTicket.id, "Resolved")}
-                      className="px-2.5 py-1 bg-primary text-primary-foreground hover:bg-primary/90 rounded text-[10px] font-bold cursor-pointer transition flex items-center gap-0.5"
+                      className={`${appBtnPrimary} !px-2.5 !py-1 !text-[10px] !font-bold`}
                     >
                       <CheckCircle size={10} /> Send AI Answer
                     </button>
@@ -270,21 +275,21 @@ export default function SupportPage() {
               </div>
             </div>
 
-            <div className="p-4 border-t border-border bg-secondary flex justify-between">
-              <span className="text-xs font-bold text-muted-foreground self-center">Action Board:</span>
-              <div className="flex gap-1.5">
+            <div className="p-4 border-t border-[#1A1A14]/10 bg-[#1A1A14]/[0.04] flex flex-col sm:flex-row sm:justify-between gap-2">
+              <span className="text-xs font-bold text-[#6A6A60] self-center">Action Board:</span>
+              <div className="flex flex-wrap gap-1.5">
                 {selectedTicket.status !== 'New' && (
-                  <button 
+                  <button
                     onClick={() => handleMoveStatus(selectedTicket.id, "New")}
-                    className="px-2 py-1 bg-secondary text-foreground border border-border rounded text-[10px] font-bold cursor-pointer hover:bg-secondary/80"
+                    className={`${appBtnGhost} !px-2 !py-1 !text-[10px] !font-bold`}
                   >
                     Move to New
                   </button>
                 )}
                 {selectedTicket.status !== 'In Progress' && (
-                  <button 
+                  <button
                     onClick={() => handleMoveStatus(selectedTicket.id, "In Progress")}
-                    className="px-2 py-1 bg-secondary text-foreground border border-border rounded text-[10px] font-bold cursor-pointer hover:bg-secondary/80"
+                    className={`${appBtnGhost} !px-2 !py-1 !text-[10px] !font-bold`}
                   >
                     Mark Active
                   </button>
@@ -296,52 +301,52 @@ export default function SupportPage() {
 
         {/* Create Ticket Modal */}
         {isCreateOpen && (
-          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-            <div className="bg-card border border-border rounded-xl shadow-lg w-full max-w-md overflow-hidden">
-              <div className="flex justify-between items-center px-6 py-4 border-b border-border bg-secondary">
-                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-                  <MessageCircle size={20} className="text-primary" />
+          <div className={appModalOverlay}>
+            <div className={`${appModal} !max-w-md !p-0 overflow-hidden`}>
+              <div className={`flex justify-between items-center ${appCardPadding} border-b border-[#1A1A14]/10 bg-[#1A1A14]/[0.04]`}>
+                <h2 className="text-xl font-bold text-[#1A1A14] flex items-center gap-2">
+                  <MessageCircle size={20} className="text-[#1A1A14]" />
                   Create Ticket
                 </h2>
-                <button 
+                <button
                   onClick={() => setIsCreateOpen(false)}
-                  className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition cursor-pointer"
+                  className={appBtnIcon}
                 >
                   <X size={20} />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateTicket} className="p-6 space-y-4">
+              <form onSubmit={handleCreateTicket} className={`${appCardPadding} space-y-4`}>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Ticket Title</label>
+                  <label className={appLabel}>Ticket Title</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Received incorrect item invoice"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    className={appInputPlain}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Customer Email</label>
+                  <label className={appLabel}>Customer Email</label>
                   <input
                     type="email"
                     required
                     placeholder="customer@domain.com"
                     value={customer}
                     onChange={(e) => setCustomer(e.target.value)}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    className={appInputPlain}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Category</label>
+                  <label className={appLabel}>Category</label>
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                    className={appSelect}
                   >
                     <option value="Billing Issues">Billing Issues</option>
                     <option value="Technical Problems">Technical Problems</option>
@@ -353,28 +358,28 @@ export default function SupportPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Customer Inquiry Message</label>
+                  <label className={appLabel}>Customer Inquiry Message</label>
                   <textarea
                     required
                     rows={4}
                     placeholder="Type client description..."
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
+                    className={`${appInputPlain} resize-none`}
                   />
                 </div>
 
-                <div className="flex gap-3 justify-end pt-4 border-t border-border">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 justify-end pt-4 border-t border-[#1A1A14]/10">
                   <button
                     type="button"
                     onClick={() => setIsCreateOpen(false)}
-                    className="px-4 py-2 border border-border rounded-lg hover:bg-secondary transition cursor-pointer text-foreground text-sm font-semibold"
+                    className={appBtnGhost}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition flex items-center gap-1.5 cursor-pointer text-sm font-semibold"
+                    className={appBtnPrimary}
                   >
                     Submit Ticket
                   </button>

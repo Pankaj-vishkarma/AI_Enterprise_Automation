@@ -1,22 +1,26 @@
 import React from 'react';
+import {
+  appBtnPrimary, appBtnGhost, appInputPlain, appCard, appCardPadding,
+  appModalOverlay, appModal, appLabel, appBadgeActive, appBadgeWarning,
+  appBadgeError, appBadgeInfo, appBadgeInactive,
+} from '../../styles/appStyles';
 
-export function Button({ children, variant = 'primary', size = 'md', disabled = false, ...props }) {
-  const baseStyles = 'font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2';
+export function Button({ children, variant = 'primary', size = 'md', disabled = false, className = '', ...props }) {
   const variants = {
-    primary: 'bg-primary text-primary-foreground hover:bg-primary/90',
-    secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80 border border-border',
-    destructive: 'bg-destructive text-white hover:bg-destructive/90',
-    ghost: 'hover:bg-secondary text-foreground',
+    primary: appBtnPrimary,
+    secondary: appBtnGhost,
+    destructive: 'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm bg-red-600 text-white hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
+    ghost: 'inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm text-[#1A1A14] hover:bg-[#1A1A14]/5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed',
   };
   const sizes = {
-    sm: 'px-3 py-1 text-sm',
-    md: 'px-4 py-2',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'px-3 py-1.5 text-xs',
+    md: '',
+    lg: 'px-6 py-3 text-base',
   };
 
   return (
     <button
-      className={`${baseStyles} ${variants[variant]} ${sizes[size]}`}
+      className={`${variants[variant]} ${sizes[size]} ${className}`}
       disabled={disabled}
       {...props}
     >
@@ -25,14 +29,11 @@ export function Button({ children, variant = 'primary', size = 'md', disabled = 
   );
 }
 
-export function Input({ label, error, ...props }) {
+export function Input({ label, error, className = '', ...props }) {
   return (
     <div>
-      {label && <label className="block text-sm font-medium text-foreground mb-2">{label}</label>}
-      <input
-        className="w-full px-4 py-2 border border-border rounded-lg bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50"
-        {...props}
-      />
+      {label && <label className={appLabel}>{label}</label>}
+      <input className={`${appInputPlain} ${className}`} {...props} />
       {error && <p className="text-red-600 text-sm mt-1">{error}</p>}
     </div>
   );
@@ -40,7 +41,7 @@ export function Input({ label, error, ...props }) {
 
 export function Card({ children, className = '' }) {
   return (
-    <div className={`bg-card border border-border rounded-lg p-6 ${className}`}>
+    <div className={`${appCard} ${appCardPadding} ${className}`}>
       {children}
     </div>
   );
@@ -48,38 +49,36 @@ export function Card({ children, className = '' }) {
 
 export function Badge({ children, variant = 'default' }) {
   const variants = {
-    default: 'bg-secondary text-secondary-foreground',
-    success: 'bg-green-100 text-green-700',
-    warning: 'bg-yellow-100 text-yellow-700',
-    error: 'bg-red-100 text-red-700',
-    info: 'bg-blue-100 text-blue-700',
+    default: appBadgeInactive,
+    success: appBadgeActive,
+    warning: appBadgeWarning,
+    error: appBadgeError,
+    info: appBadgeInfo,
   };
 
   return (
-    <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${variants[variant]}`}>
+    <span className={`inline-block ${variants[variant]}`}>
       {children}
     </span>
   );
 }
 
-export function Modal({ isOpen, onClose, title, children }) {
+export function Modal({ isOpen, onClose, title, children, className = '' }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-card rounded-lg shadow-lg max-w-md w-full mx-4">
-        <div className="border-b border-border px-6 py-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">{title}</h2>
+    <div className={appModalOverlay} onClick={onClose}>
+      <div className={`${appModal} max-w-md ${className}`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[#1A1A14]">{title}</h2>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-xl"
+            className="text-[#6A6A60] hover:text-[#1A1A14] text-xl leading-none p-1 rounded-lg hover:bg-[#1A1A14]/5 transition"
           >
             ×
           </button>
         </div>
-        <div className="px-6 py-4">
-          {children}
-        </div>
+        <div>{children}</div>
       </div>
     </div>
   );

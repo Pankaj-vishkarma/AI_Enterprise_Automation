@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
-import { MessageCircle, Globe, Send, User, Bot, AlertTriangle, ShieldCheck, Check, Sparkles, Sliders } from 'lucide-react';
+import { MessageCircle, Globe, Send, User, Bot, ShieldCheck, Check, Sparkles } from 'lucide-react';
+import {
+  appPageTitle, appPageDesc, appBtnPrimary, appBtnGhost, appGlassCard,
+  appInputPlain, appBadgeActive, appBadgeError, appBadgeInfo,
+} from '../../styles/appStyles';
 
 // Custom icons or text tags for channel types:
 // Slack: Hash icon
@@ -82,7 +86,7 @@ export default function OmnichannelPage() {
       case "Website Chat": return <Globe className="text-blue-500" size={14} />;
       case "Telegram": return <Send className="text-sky-500" size={14} />;
       case "Slack": return <span className="font-bold text-pink-600 text-xs">#</span>;
-      default: return <MessageCircle className="text-gray-500" size={14} />;
+      default: return <MessageCircle className="text-[#6A6A60]" size={14} />;
     }
   };
 
@@ -96,7 +100,7 @@ export default function OmnichannelPage() {
     if (!text.trim()) return;
 
     const newMsg = { sender, text };
-    
+
     // Update active conversation
     const updatedConv = {
       ...activeConv,
@@ -122,7 +126,7 @@ export default function OmnichannelPage() {
   const handleToggleHandoff = () => {
     const newStatus = activeConv.status === "Human Active" ? "AI Active" : "Human Active";
     const updatedConv = { ...activeConv, status: newStatus };
-    
+
     setActiveConv(updatedConv);
     setConversations(prev => prev.map(c => c.id === activeConv.id ? updatedConv : c));
     operationsAPI.update('omnichannel', activeConv.id, { status: newStatus }).catch(() => {});
@@ -130,47 +134,49 @@ export default function OmnichannelPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-6xl mx-auto flex flex-col h-[calc(100vh-120px)]">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-            <MessageCircle size={32} className="text-primary" />
+      <div className="space-y-6 max-w-6xl mx-auto flex flex-col h-[calc(100vh-120px)] min-w-0 overflow-x-hidden">
+        <div className="min-w-0">
+          <h1 className={`${appPageTitle} flex items-center gap-2`}>
+            <MessageCircle size={32} className="text-[#1A1A14] flex-shrink-0" />
             Omnichannel Communication Center
           </h1>
-          <p className="text-muted-foreground mt-1">Unified inbox connecting Website Chat, Telegram, and Slack. Easily review conversation histories and delegate between AI and human operators.</p>
+          <p className={appPageDesc}>Unified inbox connecting Website Chat, Telegram, and Slack. Easily review conversation histories and delegate between AI and human operators.</p>
         </div>
 
         {/* Omnichannel Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1 min-h-0 overflow-y-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
           {/* Inbox List (Left Column) */}
-          <div className="lg:col-span-1 bg-card border border-border rounded-xl p-4 flex flex-col h-full overflow-hidden shadow-sm">
-            <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wider mb-3">Unified Inbox</h3>
-            <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+          <div className={`lg:col-span-1 ${appGlassCard} !p-4 flex flex-col h-full overflow-hidden min-w-0`}>
+            <h3 className="font-bold text-xs text-[#6A6A60] uppercase tracking-wider mb-3">Unified Inbox</h3>
+            <div className="space-y-2 overflow-y-auto flex-1 pr-1 min-w-0">
               {conversations.map(conv => (
                 <div
                   key={conv.id}
                   onClick={() => handleSelectConv(conv)}
-                  className={`p-3 border rounded-xl cursor-pointer transition flex gap-3 ${
-                    activeConv.id === conv.id ? 'border-primary bg-primary/5' : 'border-border bg-secondary/20 hover:bg-secondary/40'
+                  className={`p-3 border rounded-xl cursor-pointer transition flex gap-3 min-w-0 ${
+                    activeConv.id === conv.id
+                      ? 'border-[#1A1A14]/30 bg-[#1A1A14]/5 ring-1 ring-[#1A1A14]/10'
+                      : 'border-[#1A1A14]/10 bg-[#1A1A14]/[0.03] hover:bg-[#1A1A14]/[0.06]'
                   }`}
                 >
-                  <div className="w-9 h-9 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-xs text-foreground flex-shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-[#1A1A14]/5 border border-[#1A1A14]/10 flex items-center justify-center font-bold text-xs text-[#1A1A14] flex-shrink-0">
                     {conv.avatar}
                   </div>
                   <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-xs font-bold text-foreground truncate">{conv.name}</h4>
-                      <span className="text-[9px] text-muted-foreground">{conv.time}</span>
+                    <div className="flex justify-between items-center gap-2">
+                      <h4 className="text-xs font-bold text-[#1A1A14] truncate">{conv.name}</h4>
+                      <span className="text-[9px] text-[#6A6A60] flex-shrink-0">{conv.time}</span>
                     </div>
-                    <p className="text-[10px] text-muted-foreground truncate">{conv.lastMessage}</p>
-                    <div className="flex justify-between items-center pt-1">
-                      <span className="flex items-center gap-1 text-[9px] text-foreground font-semibold">
+                    <p className="text-[10px] text-[#6A6A60] truncate">{conv.lastMessage}</p>
+                    <div className="flex justify-between items-center pt-1 gap-2">
+                      <span className="flex items-center gap-1 text-[9px] text-[#1A1A14] font-semibold min-w-0 truncate">
                         {channelIcon(conv.channel)}
                         {conv.channel}
                       </span>
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
-                        conv.status === 'AI Active' ? 'bg-green-100 text-green-800' :
-                        conv.status === 'Human Active' ? 'bg-blue-100 text-blue-800' :
-                        'bg-red-100 text-red-800'
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        conv.status === 'AI Active' ? appBadgeActive :
+                        conv.status === 'Human Active' ? appBadgeInfo :
+                        appBadgeError
                       }`}>
                         {conv.status}
                       </span>
@@ -182,26 +188,26 @@ export default function OmnichannelPage() {
           </div>
 
           {/* Chat Window (Center Column) */}
-          <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 flex flex-col justify-between h-full overflow-hidden shadow-sm">
-            <div className="flex-1 flex flex-col justify-between overflow-hidden">
+          <div className={`lg:col-span-2 ${appGlassCard} flex flex-col justify-between h-full overflow-hidden min-w-0`}>
+            <div className="flex-1 flex flex-col justify-between overflow-hidden min-w-0">
               {/* Header */}
-              <div className="flex justify-between items-center border-b border-border pb-3 mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-secondary border border-border flex items-center justify-center font-bold text-xs text-foreground">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 border-b border-[#1A1A14]/10 pb-3 mb-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 rounded-full bg-[#1A1A14]/5 border border-[#1A1A14]/10 flex items-center justify-center font-bold text-xs text-[#1A1A14] flex-shrink-0">
                     {activeConv.avatar}
                   </div>
-                  <div>
-                    <h3 className="text-xs font-bold text-foreground">{activeConv.name}</h3>
-                    <p className="text-[10px] text-muted-foreground">Channel: {activeConv.channel}</p>
+                  <div className="min-w-0">
+                    <h3 className="text-xs font-bold text-[#1A1A14] truncate">{activeConv.name}</h3>
+                    <p className="text-[10px] text-[#6A6A60]">Channel: {activeConv.channel}</p>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button 
+                <div className="flex gap-2 flex-shrink-0">
+                  <button
                     onClick={handleToggleHandoff}
-                    className={`px-2.5 py-1 rounded-lg border text-[10px] font-bold cursor-pointer transition ${
-                      activeConv.status === "Human Active" 
-                        ? 'bg-blue-100 border-blue-200 text-blue-800' 
-                        : 'bg-secondary border-border text-foreground hover:bg-secondary/80'
+                    className={`px-2.5 py-1 rounded-xl border text-[10px] font-bold cursor-pointer transition ${
+                      activeConv.status === "Human Active"
+                        ? 'bg-blue-100 border-blue-200 text-blue-800'
+                        : `${appBtnGhost} !px-2.5 !py-1 !text-[10px] !font-bold`
                     }`}
                   >
                     {activeConv.status === "Human Active" ? 'Human Operator Active' : 'Delegate to Human'}
@@ -210,21 +216,21 @@ export default function OmnichannelPage() {
               </div>
 
               {/* Message History */}
-              <div className="flex-1 overflow-y-auto space-y-4 pr-1 select-text scrollbar-thin max-h-64">
+              <div className="flex-1 overflow-y-auto space-y-4 pr-1 select-text max-h-64 min-w-0">
                 {activeConv.messages.map((msg, i) => (
-                  <div key={i} className={`flex gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div key={i} className={`flex gap-3 min-w-0 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.sender !== 'user' && (
                       <div className={`w-6 h-6 rounded flex items-center justify-center flex-shrink-0 text-xs ${
-                        msg.sender === 'ai' ? 'bg-primary/10 text-primary' : 'bg-blue-100 text-blue-800'
+                        msg.sender === 'ai' ? 'bg-[#1A1A14]/10 text-[#1A1A14]' : 'bg-blue-100 text-blue-800'
                       }`}>
                         {msg.sender === 'ai' ? <Bot size={14} /> : <User size={14} />}
                       </div>
                     )}
-                    <div className={`max-w-md p-3 rounded-lg text-xs leading-relaxed ${
+                    <div className={`max-w-[85%] sm:max-w-md p-3 rounded-xl text-xs leading-relaxed min-w-0 ${
                       msg.sender === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-tr-none'
+                        ? 'bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] rounded-tr-none'
                         : msg.sender === 'ai'
-                        ? 'bg-secondary text-secondary-foreground rounded-tl-none border border-border'
+                        ? 'bg-[#1A1A14]/[0.06] text-[#1A1A14] rounded-tl-none border border-[#1A1A14]/10'
                         : 'bg-blue-50 text-blue-900 border border-blue-100 rounded-tl-none'
                     }`}>
                       {msg.text}
@@ -235,21 +241,21 @@ export default function OmnichannelPage() {
             </div>
 
             {/* Input Form */}
-            <form 
+            <form
               onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputText); setInputText(''); }}
-              className="flex gap-2 border-t border-border pt-4 mt-4"
+              className="flex flex-col sm:flex-row gap-2 border-t border-[#1A1A14]/10 pt-4 mt-4 min-w-0"
             >
               <input
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder={activeConv.status === 'Human Active' ? 'Type human operator response...' : 'Type message (Delegated to AI)...'}
-                className="flex-1 px-4 py-2 border border-border rounded-xl bg-input text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-xs"
+                className={`${appInputPlain} flex-1 min-w-0 !text-xs`}
               />
               <button
                 type="submit"
                 disabled={!inputText.trim()}
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer font-bold text-xs"
+                className={`${appBtnPrimary} !px-4 !py-2 !text-xs !font-bold flex-shrink-0`}
               >
                 <Send size={14} />
               </button>
@@ -257,14 +263,14 @@ export default function OmnichannelPage() {
           </div>
 
           {/* Shared Context & AI Helper (Right Column) */}
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-4 min-w-0">
             {/* Customer Metadata Card */}
-            <div className="bg-card border border-border rounded-xl p-4 space-y-3 shadow-sm text-xs">
-              <h3 className="font-bold text-xs text-muted-foreground uppercase tracking-wider">Customer Context</h3>
-              <div className="space-y-2 text-foreground">
-                <p><strong>Email:</strong> {activeConv.email}</p>
-                <p><strong>Organization:</strong> {activeConv.company}</p>
-                <p className="flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 p-2 rounded">
+            <div className={`${appGlassCard} !p-4 space-y-3 text-xs min-w-0`}>
+              <h3 className="font-bold text-xs text-[#6A6A60] uppercase tracking-wider">Customer Context</h3>
+              <div className="space-y-2 text-[#1A1A14]">
+                <p className="break-words"><strong>Email:</strong> {activeConv.email}</p>
+                <p className="break-words"><strong>Organization:</strong> {activeConv.company}</p>
+                <p className={`flex items-center gap-1 text-[10px] ${appBadgeActive} !rounded-xl p-2`}>
                   <ShieldCheck size={12} className="flex-shrink-0" />
                   GDPR Verified Contact
                 </p>
@@ -272,17 +278,17 @@ export default function OmnichannelPage() {
             </div>
 
             {/* AI Assistant Recommender */}
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-3 shadow-sm text-xs">
-              <div className="flex items-center gap-1.5 font-bold text-primary">
+            <div className="bg-[#1A1A14]/5 border border-[#1A1A14]/15 rounded-2xl p-4 space-y-3 text-xs min-w-0">
+              <div className="flex items-center gap-1.5 font-bold text-[#1A1A14]">
                 <Sparkles size={14} />
                 AI-Assisted Reply Suggestion
               </div>
-              <div className="bg-input border border-border p-3 rounded-lg leading-relaxed text-foreground text-[11px] select-text">
+              <div className="bg-white/50 border border-[#1A1A14]/10 p-3 rounded-xl leading-relaxed text-[#1A1A14] text-[11px] select-text">
                 {activeConv.recommendedReply}
               </div>
               <button
                 onClick={handleApproveReply}
-                className="w-full bg-primary text-primary-foreground hover:bg-primary/95 text-[10px] font-bold py-2 rounded-lg cursor-pointer transition flex items-center justify-center gap-1 shadow-sm"
+                className={`${appBtnPrimary} w-full !text-[10px] !font-bold !py-2`}
               >
                 <Check size={12} />
                 Approve & Send Draft

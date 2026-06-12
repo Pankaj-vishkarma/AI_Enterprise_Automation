@@ -28,10 +28,10 @@ export default function HeroSection() {
           transition={{ duration: 0.6 }}
           className="flex justify-center mb-8"
         >
-          <div className="glass rounded-full pl-1 pr-4 py-1 flex items-center gap-2.5 text-xs">
+          <div className="glass rounded-full pl-1 pr-3 sm:pr-4 py-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-[10px] sm:text-xs max-w-full">
             <span className="px-2.5 py-1 rounded-full bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] font-medium">NEW</span>
-            <span className="text-[var(--muted-foreground)]">Multi-agent collaboration is live</span>
-            <ChevronRight className="h-3 w-3 text-[var(--muted-foreground)]" />
+            <span className="text-[var(--muted-foreground)] text-center">Multi-agent collaboration is live</span>
+            <ChevronRight className="h-3 w-3 text-[var(--muted-foreground)] hidden sm:block" />
           </div>
         </motion.div>
 
@@ -39,7 +39,7 @@ export default function HeroSection() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1 }}
-          className="text-center text-[48px] sm:text-[72px] lg:text-[96px] font-bold tracking-[-0.04em] leading-[0.95]"
+          className="text-center text-[40px] sm:text-[48px] md:text-[72px] lg:text-[96px] font-bold tracking-[-0.04em] leading-[0.95] px-1"
         >
           <span className="text-gradient">Build your</span>
           <br />

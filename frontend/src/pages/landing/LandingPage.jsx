@@ -19,7 +19,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="landing-page relative min-h-screen">
+    <div className="landing-page relative min-h-screen overflow-x-hidden">
       <Navbar />
       <main>
         <HeroSection />

@@ -1,5 +1,6 @@
 import {
   Users, Briefcase, Search, LifeBuoy, FileText, Brain, Shield, Coins,
+  Zap, BookOpen, BarChart3,
 } from 'lucide-react';
 
 export const ICON_MAP = {
@@ -11,6 +12,9 @@ export const ICON_MAP = {
   Brain,
   Shield,
   Coins,
+  Zap,
+  BookOpen,
+  BarChart3,
 };
 
 export function getIcon(name) {

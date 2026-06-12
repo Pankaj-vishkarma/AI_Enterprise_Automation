@@ -12,6 +12,15 @@ export const NAV_LINKS = [
   { href: '#analytics', label: 'Analytics' },
 ];
 
+export const LOGIN_CORE_NODES = [
+  { label: 'AI Employees', iconName: 'Users', angle: 0, color: '#1A1A14' },
+  { label: 'Automation', iconName: 'Zap', angle: 60, color: '#4B4B42' },
+  { label: 'Knowledge', iconName: 'BookOpen', angle: 120, color: '#6A6A60' },
+  { label: 'Research', iconName: 'Search', angle: 180, color: '#4B4B42' },
+  { label: 'Analytics', iconName: 'BarChart3', angle: 240, color: '#1A1A14' },
+  { label: 'Support', iconName: 'LifeBuoy', angle: 300, color: '#6A6A60' },
+];
+
 export const CORE_AGENTS = [
   { label: 'HR AI', iconName: 'Users', angle: 0, color: '#1A1A14' },
   { label: 'Sales AI', iconName: 'Briefcase', angle: 72, color: '#4B4B42' },

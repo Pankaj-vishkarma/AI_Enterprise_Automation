@@ -22,3 +22,5 @@ from .workflow import Workflow, WorkflowStep, WorkflowInstance, WorkflowInstance
 from .research_report import ResearchReport
 from .browser_task import BrowserTask
 from .voice_session import VoiceSession
+from .omnichannel_conversation import OmnichannelConversation
+from .omnichannel_message import OmnichannelMessage

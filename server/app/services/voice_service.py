@@ -18,6 +18,7 @@ from app.services.collaboration_service import CollaborationService
 from app.services.rag_service import RAGService
 from app.services.research_service import ResearchService
 from app.services.support_service import SupportService
+from app.services.omnichannel_service import OmnichannelService
 from app.services.workflow_service import WorkflowService
 
 
@@ -27,6 +28,7 @@ VOICE_INTENTS = [
     "support_create",
     "support_list_open",
     "support_request",
+    "omnichannel_inbox",
     "research_request",
     "browser_task",
     "workflow_command",
@@ -48,6 +50,7 @@ MODULE_BY_INTENT = {
     "support_create": "support",
     "support_list_open": "support",
     "support_request": "support",
+    "omnichannel_inbox": "omnichannel",
     "research_request": "research",
     "browser_task": "browser-automation",
     "workflow_command": "workflows",
@@ -103,6 +106,12 @@ class VoiceService:
             "show open tickets", "open tickets", "list open tickets", "list tickets",
         ]):
             return "support_list_open"
+
+        if any(k in text for k in [
+            "omnichannel inbox", "unified inbox", "show inbox", "list conversations",
+            "open conversations", "communication center",
+        ]):
+            return "omnichannel_inbox"
 
         if assistant_role and assistant_role in ASSISTANT_ROLE_MAP:
             return ASSISTANT_ROLE_MAP[assistant_role]
@@ -236,6 +245,12 @@ class VoiceService:
         summary = support.list_open_summary(current_user)
         open_tickets = support.list_tickets(current_user, open_only=True)
         return summary, {"ticket_count": len(open_tickets)}
+
+    def _route_omnichannel_inbox(self, current_user, transcript: str) -> Tuple[str, Dict[str, Any]]:
+        omnichannel = OmnichannelService(self.db)
+        summary = omnichannel.list_inbox_summary(current_user)
+        convs = omnichannel.list_conversations(current_user)
+        return summary, {"conversation_count": len(convs)}
 
     def _route_support(self, current_user, transcript: str) -> Tuple[str, Dict[str, Any]]:
         support = SupportService(self.db)
@@ -414,6 +429,9 @@ class VoiceService:
             elif intent == "support_request":
                 answer, metadata = self._route_support(current_user, transcript)
                 assistant_used = "Support Assistant"
+            elif intent == "omnichannel_inbox":
+                answer, metadata = self._route_omnichannel_inbox(current_user, transcript)
+                assistant_used = "Omnichannel Assistant"
             elif intent == "research_request":
                 answer, metadata = self._route_research(current_user, transcript)
                 assistant_used = "Research Assistant"

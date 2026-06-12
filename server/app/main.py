@@ -22,6 +22,8 @@ from app.api.v1.research import router as research_router
 from app.api.v1.browser import router as browser_router
 from app.api.v1.voice import router as voice_router
 from app.api.v1.support import router as support_router
+from app.api.v1.omnichannel import router as omnichannel_router
+from app.api.v1.omnichannel_webhooks import router as omnichannel_webhooks_router
 from app.clients.redis_client import get_redis
 
 logging.basicConfig(level=logging.INFO)
@@ -61,6 +63,8 @@ def create_app() -> FastAPI:
     app.include_router(operations_router)
     app.include_router(voice_router)
     app.include_router(support_router)
+    app.include_router(omnichannel_router)
+    app.include_router(omnichannel_webhooks_router)
 
     @app.on_event("startup")
     def on_startup():

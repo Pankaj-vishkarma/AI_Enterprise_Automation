@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     EMBEDDING_BATCH_SIZE: int = 64
     STORAGE_ROOT: str | None = None
 
+    SLACK_BOT_TOKEN: str | None = None
+    SLACK_SIGNING_SECRET: str | None = None
+    TELEGRAM_BOT_TOKEN: str | None = None
+    TELEGRAM_WEBHOOK_SECRET: str | None = None
+    OMNICHANNEL_WEBHOOK_ORG_ID: int | None = None
+
     class Config:
         env_file = ".env"
 

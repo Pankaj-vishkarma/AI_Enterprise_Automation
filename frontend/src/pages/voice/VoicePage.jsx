@@ -17,6 +17,7 @@ const SUGGESTED_COMMANDS = [
   'What is the leave policy?',
   'Create support ticket for billing issue',
   'Show open tickets',
+  'Show omnichannel inbox',
   "Summarize today's support tickets.",
   'Explain the reimbursement process.',
   'Analyze AI market in India',

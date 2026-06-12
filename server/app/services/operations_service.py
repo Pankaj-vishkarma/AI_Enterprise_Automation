@@ -15,6 +15,7 @@ from app.services.research_service import ResearchService
 from app.services.browser_service import BrowserService
 from app.services.voice_service import VoiceService
 from app.services.support_service import SupportService
+from app.services.omnichannel_service import OmnichannelService
 
 
 MODULES = {
@@ -42,6 +43,8 @@ class OperationsService:
         self._validate_module(module)
         if module == "ai-employees":
             return AIEmployeeService(self.db).list(current_user)
+        if module == "omnichannel":
+            return OmnichannelService(self.db).list_for_operations(current_user)
         return [self.repo.serialize(item) for item in self.repo.list(current_user.organization_id, module)]
 
     def create(self, current_user, module: str, payload):
@@ -52,14 +55,7 @@ class OperationsService:
         if module == "support":
             return SupportService(self.db).create_from_operations(current_user, data)
         if module == "omnichannel":
-            last_message = data["data"].get("lastMessage", "")
-            data["data"].setdefault(
-                "recommendedReply",
-                self._reason(
-                    f"Draft a concise assisted reply to this customer message: {last_message}",
-                    "Thank you for your message. A team member will review it and respond shortly.",
-                ),
-            )
+            return OmnichannelService(self.db).create_from_operations(current_user, data)
         record = self.repo.create(current_user.organization_id, current_user.id, module, data)
         return self.repo.serialize(record)
 
@@ -90,6 +86,11 @@ class OperationsService:
             if not ticket:
                 return None
             return svc.to_operations_format(ticket)
+        if module == "omnichannel":
+            result = OmnichannelService(self.db).update_from_operations(
+                current_user, record_id, payload.model_dump(exclude_unset=True)
+            )
+            return result
         record = self.repo.get(current_user.organization_id, module, record_id)
         if not record:
             return None

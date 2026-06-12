@@ -16,6 +16,8 @@ import {
   MessageCircle,
   BarChart3,
 } from 'lucide-react';
+import BrandLogo from '../../pages/landing/components/ui/BrandLogo';
+import { BRAND } from '../../pages/landing/constants';
 
 const menuItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,43 +38,71 @@ export default function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
 
   return (
-    <div className="h-full bg-sidebar border-r border-sidebar-border flex flex-col">
+    <div className="h-full flex flex-col bg-[#F1F0E3] border-r border-[#1A1A14]/[0.08]">
       {/* Logo area */}
-      <div className="h-16 border-b border-sidebar-border flex items-center justify-between px-4">
-        {isOpen && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-sidebar-primary rounded-lg flex items-center justify-center">
-              <span className="text-sidebar-primary-foreground font-bold text-sm">AI</span>
-            </div>
-            <span className="font-bold text-sidebar-foreground">Automation</span>
+      <div
+        className={`shrink-0 h-16 border-b border-[#1A1A14]/[0.08] flex items-center ${
+          isOpen ? 'justify-between px-4' : 'justify-center px-2'
+        }`}
+      >
+        {isOpen ? (
+          <div className="flex items-center gap-2 min-w-0">
+            <BrandLogo iconClassName="shadow-[0_0_12px_rgba(240,245,31,0.35)]" />
+          </div>
+        ) : (
+          <div
+            className="h-8 w-8 grid place-items-center rounded-lg bg-gradient-to-br from-[#1A1A14] to-[#4B4B42] shadow-[0_0_12px_rgba(240,245,31,0.35)]"
+            title={BRAND.fullName}
+          >
+            <span className="font-bold text-xs text-[#F1F0E3]">{BRAND.shortMark}</span>
           </div>
         )}
-        <button
-          onClick={onToggle}
-          className="text-sidebar-foreground hover:bg-sidebar-accent rounded-lg p-1 cursor-pointer"
-        >
-          {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
-        </button>
+        {isOpen && (
+          <button
+            onClick={onToggle}
+            className="shrink-0 text-[#6A6A60] hover:text-[#1A1A14] hover:bg-[#1A1A14]/5 rounded-lg p-1.5 cursor-pointer transition-all duration-200"
+            aria-label="Collapse sidebar"
+          >
+            <ChevronLeft size={18} />
+          </button>
+        )}
       </div>
 
+      {!isOpen && (
+        <div className="shrink-0 flex justify-center py-2 border-b border-[#1A1A14]/[0.06]">
+          <button
+            onClick={onToggle}
+            className="text-[#6A6A60] hover:text-[#1A1A14] hover:bg-[#1A1A14]/5 rounded-lg p-1.5 cursor-pointer transition-all duration-200"
+            aria-label="Expand sidebar"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      )}
+
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin">
+      <nav className="flex-1 min-h-0 px-2.5 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-thin">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          
+
           return (
             <Link
               key={item.path}
               to={item.path}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition ${
+              title={!isOpen ? item.label : undefined}
+              className={`flex items-center gap-3 py-2.5 rounded-xl transition-all duration-200 ${
+                isOpen ? 'px-3' : 'px-2 justify-center'
+              } ${
                 isActive
-                  ? 'bg-sidebar-primary text-sidebar-primary-foreground font-semibold'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent'
+                  ? 'bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] font-medium shadow-[0_4px_16px_-4px_rgba(26,26,20,0.22)]'
+                  : 'text-[#6A6A60] hover:text-[#1A1A14] hover:bg-[#1A1A14]/5'
               }`}
             >
-              <Icon size={20} />
-              {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+              <Icon size={18} className="shrink-0" strokeWidth={isActive ? 2.25 : 2} />
+              {isOpen && (
+                <span className="text-sm font-medium leading-snug truncate">{item.label}</span>
+              )}
             </Link>
           );
         })}

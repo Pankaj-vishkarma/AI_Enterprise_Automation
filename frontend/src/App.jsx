@@ -42,6 +42,9 @@ import SupportPage from './pages/support/SupportPage';
 import OmnichannelPage from './pages/omnichannel/OmnichannelPage';
 import AnalyticsPage from './pages/analytics/AnalyticsPage';
 
+// Landing
+import LandingPage from './pages/landing/LandingPage';
+
 // Other
 import NotFoundPage from './pages/NotFoundPage';
 
@@ -150,8 +153,10 @@ function AppRoutes() {
       {/* Analytics & Reporting */}
       <Route path="/analytics" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><AnalyticsPage /></Suspense></ProtectedRoute>} />
 
+      {/* Landing */}
+      <Route path="/" element={<LandingPage />} />
+
       {/* Catch all */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

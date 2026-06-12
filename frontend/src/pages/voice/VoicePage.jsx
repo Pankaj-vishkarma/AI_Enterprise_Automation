@@ -15,6 +15,8 @@ import {
 
 const SUGGESTED_COMMANDS = [
   'What is the leave policy?',
+  'Create support ticket for billing issue',
+  'Show open tickets',
   "Summarize today's support tickets.",
   'Explain the reimbursement process.',
   'Analyze AI market in India',

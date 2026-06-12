@@ -14,6 +14,7 @@ from app.services.workflow_service import WorkflowService
 from app.services.research_service import ResearchService
 from app.services.browser_service import BrowserService
 from app.services.voice_service import VoiceService
+from app.services.support_service import SupportService
 
 
 MODULES = {
@@ -49,9 +50,7 @@ class OperationsService:
         if module == "ai-employees":
             return AIEmployeeService(self.db).create(current_user, data)
         if module == "support":
-            message = data["data"].get("message", "")
-            data["data"].setdefault("sentiment", self._sentiment(message))
-            data["data"].setdefault("aiRecommendation", self._support_recommendation(data["title"], message))
+            return SupportService(self.db).create_from_operations(current_user, data)
         if module == "omnichannel":
             last_message = data["data"].get("lastMessage", "")
             data["data"].setdefault(
@@ -68,6 +67,29 @@ class OperationsService:
         self._validate_module(module)
         if module == "ai-employees":
             return AIEmployeeService(self.db).update(current_user, record_id, payload.model_dump(exclude_unset=True))
+        if module == "support":
+            svc = SupportService(self.db)
+            payload_dict = payload.model_dump(exclude_unset=True)
+            if payload_dict.get("data", {}).get("escalated"):
+                ticket = svc.escalate_ticket(
+                    current_user, record_id, "Escalated via operations API"
+                )
+                if not ticket:
+                    return None
+                return svc.to_operations_format(ticket)
+            update_payload = {}
+            if payload_dict.get("title") is not None:
+                update_payload["title"] = payload_dict["title"]
+            if payload_dict.get("status") is not None:
+                update_payload["status"] = payload_dict["status"]
+            if payload_dict.get("data"):
+                for key in ("message", "customer", "category", "priority"):
+                    if key in payload_dict["data"]:
+                        update_payload[key] = payload_dict["data"][key]
+            ticket = svc.update_ticket(current_user, record_id, update_payload)
+            if not ticket:
+                return None
+            return svc.to_operations_format(ticket)
         record = self.repo.get(current_user.organization_id, module, record_id)
         if not record:
             return None

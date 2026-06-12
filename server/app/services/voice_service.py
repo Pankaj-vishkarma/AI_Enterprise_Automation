@@ -17,12 +17,15 @@ from app.services.browser_service import BrowserService
 from app.services.collaboration_service import CollaborationService
 from app.services.rag_service import RAGService
 from app.services.research_service import ResearchService
+from app.services.support_service import SupportService
 from app.services.workflow_service import WorkflowService
 
 
 VOICE_INTENTS = [
     "knowledge_question",
     "hr_request",
+    "support_create",
+    "support_list_open",
     "support_request",
     "research_request",
     "browser_task",
@@ -42,6 +45,8 @@ ASSISTANT_ROLE_MAP = {
 MODULE_BY_INTENT = {
     "knowledge_question": "knowledge",
     "hr_request": "ai-employees",
+    "support_create": "support",
+    "support_list_open": "support",
     "support_request": "support",
     "research_request": "research",
     "browser_task": "browser-automation",
@@ -86,12 +91,23 @@ class VoiceService:
         assistant_role: Optional[str] = None,
         assistant_preference: Optional[str] = None,
     ) -> str:
+        text = transcript.lower().strip()
+
+        if any(k in text for k in [
+            "create support ticket", "open a support ticket", "new support ticket",
+            "create a ticket", "log a support ticket",
+        ]):
+            return "support_create"
+
+        if any(k in text for k in [
+            "show open tickets", "open tickets", "list open tickets", "list tickets",
+        ]):
+            return "support_list_open"
+
         if assistant_role and assistant_role in ASSISTANT_ROLE_MAP:
             return ASSISTANT_ROLE_MAP[assistant_role]
         if assistant_preference and assistant_preference in ASSISTANT_ROLE_MAP:
             return ASSISTANT_ROLE_MAP[assistant_preference]
-
-        text = transcript.lower().strip()
 
         if any(k in text for k in [
             "meeting notes", "meeting summary", "action items", "summarize meeting",
@@ -183,8 +199,47 @@ class VoiceService:
             "tools_used": result.get("tools_used", []),
         }
 
+    def _route_support_create(self, current_user, transcript: str) -> Tuple[str, Dict[str, Any]]:
+        support = SupportService(self.db)
+        parsed = self._reason(
+            "Extract a support ticket from this voice command. "
+            "Reply with JSON only: {\"title\": \"...\", \"customer\": \"email or voice-customer@org.local\", "
+            f"\"message\": \"...\"}}\nCommand: {transcript}",
+            json.dumps({
+                "title": transcript[:80] or "Voice support request",
+                "customer": "voice-customer@org.local",
+                "message": transcript,
+            }),
+        )
+        try:
+            match = re.search(r"\{.*\}", parsed, re.DOTALL)
+            fields = json.loads(match.group(0) if match else parsed)
+        except (json.JSONDecodeError, AttributeError):
+            fields = {
+                "title": transcript[:80] or "Voice support request",
+                "customer": "voice-customer@org.local",
+                "message": transcript,
+            }
+        ticket = support.create_ticket(current_user, {
+            "title": fields.get("title") or "Voice support request",
+            "customer": fields.get("customer") or "voice-customer@org.local",
+            "message": fields.get("message") or transcript,
+        })
+        return (
+            f"Created support ticket {ticket['ticket_number']}: {ticket['title']}. "
+            f"Category: {ticket['category']}. Sentiment: {ticket['sentiment']}.",
+            {"ticket_id": ticket["id"], "ticket_number": ticket["ticket_number"]},
+        )
+
+    def _route_support_list_open(self, current_user, transcript: str) -> Tuple[str, Dict[str, Any]]:
+        support = SupportService(self.db)
+        summary = support.list_open_summary(current_user)
+        open_tickets = support.list_tickets(current_user, open_only=True)
+        return summary, {"ticket_count": len(open_tickets)}
+
     def _route_support(self, current_user, transcript: str) -> Tuple[str, Dict[str, Any]]:
-        tickets = self.op_repo.list(current_user.organization_id, "support")
+        support = SupportService(self.db)
+        tickets = support.list_tickets(current_user)
         if not tickets:
             employee = self._find_employee_by_role(
                 current_user.organization_id, "Support Assistant"
@@ -198,10 +253,10 @@ class VoiceService:
 
         ticket_lines = []
         for item in tickets[:25]:
-            data = json.loads(item.data_json or "{}")
             ticket_lines.append(
-                f"- [{item.status}] {item.title} | {data.get('customer', 'unknown')} | "
-                f"{data.get('category', 'General')}: {data.get('message', '')[:200]}"
+                f"- [{item['status']}] {item['ticket_number']}: {item['title']} | "
+                f"{item.get('customer', 'unknown')} | {item.get('category', 'General')}: "
+                f"{item.get('message', '')[:200]}"
             )
         prompt = (
             f"{transcript}\n\nSupport ticket data:\n" + "\n".join(ticket_lines) +
@@ -350,6 +405,12 @@ class VoiceService:
                     current_user, transcript, "HR Assistant", employee_id
                 )
                 assistant_used = metadata.get("employee_name") or "HR Assistant"
+            elif intent == "support_create":
+                answer, metadata = self._route_support_create(current_user, transcript)
+                assistant_used = "Support Assistant"
+            elif intent == "support_list_open":
+                answer, metadata = self._route_support_list_open(current_user, transcript)
+                assistant_used = "Support Assistant"
             elif intent == "support_request":
                 answer, metadata = self._route_support(current_user, transcript)
                 assistant_used = "Support Assistant"

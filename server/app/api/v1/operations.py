@@ -13,7 +13,6 @@ from app.schemas.operations import (
     OperationalRecordResponse,
     OperationalRecordUpdate,
     ReasoningRequest,
-    VoiceQueryRequest,
 )
 from app.services.operations_service import OperationsService
 
@@ -104,11 +103,6 @@ def run_reasoning(module: str, payload: ReasoningRequest, current_user=Depends(g
         return OperationsService(db).run_reasoning(current_user, module, payload.prompt)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-
-@router.post("/voice/query", response_model=OperationalRecordResponse)
-def voice_query(payload: VoiceQueryRequest, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
-    return OperationsService(db).voice_query(current_user, payload.transcript, payload.top_k)
 
 
 @router.get("/analytics/overview", response_model=AnalyticsResponse)

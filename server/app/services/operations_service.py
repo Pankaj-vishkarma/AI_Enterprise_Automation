@@ -13,6 +13,7 @@ from app.services.rag_service import RAGService
 from app.services.workflow_service import WorkflowService
 from app.services.research_service import ResearchService
 from app.services.browser_service import BrowserService
+from app.services.voice_service import VoiceService
 
 
 MODULES = {
@@ -190,21 +191,7 @@ class OperationsService:
         return AIEmployeeService(self.db).run(current_user, employee_id, task)
 
     def voice_query(self, current_user, transcript: str, top_k: int):
-        try:
-            query, _ = RAGService(self.db).ask(current_user, transcript, top_k)
-            answer = query.answer_text
-        except Exception:
-            answer = self._reason(
-                f"Answer this voice assistant request concisely: {transcript}",
-                "I could not find enough organizational knowledge to answer that request.",
-            )
-        payload = {
-            "title": transcript[:255],
-            "record_type": "interaction",
-            "status": "completed",
-            "data": {"transcript": transcript, "answer": answer},
-        }
-        return self.repo.serialize(self.repo.create(current_user.organization_id, current_user.id, "voice", payload))
+        return VoiceService(self.db).voice_query(current_user, transcript, top_k)
 
     def analytics(self, current_user):
         org_id = current_user.organization_id

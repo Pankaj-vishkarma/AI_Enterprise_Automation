@@ -34,6 +34,7 @@ from app.models.team import Team
 from app.models.user import User
 from app.models.user_session import UserSession
 from app.models.operational_record import OperationalRecord
+from app.models.voice_session import VoiceSession
 
 # Alembic Config object
 config = context.config

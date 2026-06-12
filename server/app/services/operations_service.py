@@ -1,21 +1,18 @@
 import json
-from collections import Counter
 from typing import Dict, List
 
 from sqlalchemy.orm import Session
 
 from app.clients.groq_client import GroqClient
-from app.clients.redis_client import get_redis
-from app.models.knowledge_query import KnowledgeQuery
 from app.repositories.operational_record_repository import OperationalRecordRepository
 from app.services.ai_employee_service import AIEmployeeService
 from app.services.rag_service import RAGService
-from app.services.workflow_service import WorkflowService
 from app.services.research_service import ResearchService
 from app.services.browser_service import BrowserService
 from app.services.voice_service import VoiceService
 from app.services.support_service import SupportService
 from app.services.omnichannel_service import OmnichannelService
+from app.services.analytics_service import AnalyticsService
 
 
 MODULES = {
@@ -217,45 +214,4 @@ class OperationsService:
         return VoiceService(self.db).voice_query(current_user, transcript, top_k)
 
     def analytics(self, current_user):
-        org_id = current_user.organization_id
-        cache_key = f"analytics:overview:{org_id}"
-        redis = get_redis()
-        if redis:
-            try:
-                cached = redis.get(cache_key)
-                if cached:
-                    return json.loads(cached)
-            except Exception:
-                pass
-        queries = self.db.query(KnowledgeQuery).filter(KnowledgeQuery.organization_id == org_id).all()
-        topics = Counter(query.question_text for query in queries)
-        ai_employee_service = AIEmployeeService(self.db)
-        employees = ai_employee_service.list(current_user)
-        active_ai_employees = ai_employee_service.count_active(org_id)
-        workflow_metrics = WorkflowService(self.db).get_metrics(current_user)
-        support = self.repo.list(org_id, "support")
-        completed_workflows = workflow_metrics["completed_instances"]
-        resolved_tickets = sum(item.status.lower() == "resolved" for item in support)
-        categories = Counter(json.loads(item.data_json or "{}").get("category", "General") for item in support)
-        result = {
-            "summary": {
-                "knowledge_queries": len(queries),
-                "active_ai_employees": active_ai_employees,
-                "workflow_completion_rate": workflow_metrics["completion_rate"],
-                "resolved_support_tickets": resolved_tickets,
-            },
-            "knowledge": {"most_searched_topics": [{"topic": k, "count": v} for k, v in topics.most_common(10)]},
-            "employees": {"total": len(employees), "active": active_ai_employees},
-            "workflows": {
-                "total": workflow_metrics["total_instances"],
-                "completed": completed_workflows,
-                "active_definitions": workflow_metrics["active_workflows"],
-            },
-            "support": {"total": len(support), "resolved": resolved_tickets, "categories": dict(categories)},
-        }
-        if redis:
-            try:
-                redis.setex(cache_key, 60, json.dumps(result))
-            except Exception:
-                pass
-        return result
+        return AnalyticsService(self.db).get_overview(current_user)

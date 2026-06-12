@@ -3,13 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, Power } from 'lucide-react';
-import {
-  orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain,
-  orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary,
-  orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted,
-  orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError,
-  orgEmpty, orgLoading, orgPagination,
-} from './orgStyles';
+import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
 const emptyForm = { id: null, name: '', description: '' };
 
@@ -47,7 +41,7 @@ export default function TeamsPage({ isSubSection = false }) {
   };
 
   const content = (
-    <div className="space-y-5 sm:space-y-6">
+    <div className={orgPageShell}>
       {!isSubSection ? (
         <div>
           <h1 className={orgPageTitle}>Teams</h1>
@@ -60,8 +54,8 @@ export default function TeamsPage({ isSubSection = false }) {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <div className="flex-1 w-full sm:max-w-md">
+      <div className={orgToolbarRow}>
+        <div className={orgSearchWrap}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
             <input type="text" placeholder="Search teams..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }} className={orgInputWithIcon} />

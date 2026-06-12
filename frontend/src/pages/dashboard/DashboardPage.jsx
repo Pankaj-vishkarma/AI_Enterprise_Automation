@@ -1,20 +1,20 @@
 import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import MainLayout from '../../components/layout/MainLayout';
-import { appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBadgeActive } from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBadgeActive, appGrid } from '../../styles/appStyles';
 
 export default function DashboardPage() {
   const { user } = useAuth();
 
   return (
     <MainLayout>
-      <div className="space-y-6 sm:space-y-8">
+      <div className={appPageShell}>
         <div>
           <h1 className={appPageTitle}>Welcome back, {user?.firstName}</h1>
           <p className={appPageDesc}>Here&apos;s what&apos;s happening with your business today.</p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className={`${appGrid} grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`}>
           {[
             { title: 'Total Users', value: '1,248', trend: '+12%' },
             { title: 'Active Teams', value: '48', trend: '+5%' },
@@ -29,7 +29,7 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className={`${appGrid} grid-cols-1 lg:grid-cols-3`}>
           <div className={`lg:col-span-2 ${appGlassCard}`}>
             <h2 className={`${appSectionTitle} mb-4`}>Recent Activity</h2>
             <div className="space-y-1">

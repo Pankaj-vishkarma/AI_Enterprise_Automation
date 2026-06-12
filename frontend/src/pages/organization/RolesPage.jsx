@@ -4,12 +4,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { rolesAPI } from '../../api/roles';
 import { permissionsAPI } from '../../api/permissions';
 import { Plus, Edit, Trash2 } from 'lucide-react';
-import {
-  orgPageTitle, orgPageDesc, orgSectionTitle, orgInputPlain,
-  orgBtnPrimary, orgBtnGhost, orgBtnIconPrimary, orgBtnIconDanger,
-  orgGlassCard, orgBadgePerm, orgModalOverlay, orgModal, orgError,
-  orgEmpty, orgLoading,
-} from './orgStyles';
+import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIconPrimary, orgBtnIconDanger, orgGlassCard, orgBadgePerm, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading } from './orgStyles';
 
 const emptyForm = { id: null, name: '', permission_ids: [] };
 
@@ -57,7 +52,7 @@ export default function RolesPage({ isSubSection = false }) {
   };
 
   const content = (
-    <div className="space-y-5 sm:space-y-6">
+    <div className={orgPageShell}>
       {!isSubSection ? (
         <div>
           <h1 className={orgPageTitle}>Roles & Permissions</h1>

@@ -4,7 +4,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { conversationsAPI } from '../../api/conversations';
 import { MessageSquare, Plus, Search, Trash2 } from 'lucide-react';
 import {
-  appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnIconDanger,
+  appPageShell, appToolbarRow, appSearchWrap, appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnIconDanger,
   appGlassCard, appEmpty, appLoading,
 } from '../../styles/appStyles';
 
@@ -32,14 +32,14 @@ export default function ConversationsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className={appPageShell}>
         <div>
           <h1 className={appPageTitle}>Conversations</h1>
           <p className={appPageDesc}>Organization conversation history</p>
         </div>
 
-        <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex-1 max-w-md relative">
+        <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(); }} className={appToolbarRow}>
+          <div className={`${appSearchWrap} relative`}>
             <Plus className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
             <input
               type="text"
@@ -54,7 +54,7 @@ export default function ConversationsPage() {
           </button>
         </form>
 
-        <div className="max-w-md">
+        <div className={appSearchWrap}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
             <input

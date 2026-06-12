@@ -7,11 +7,7 @@ import {
   ArrowLeft, CheckCircle2, Clock, XCircle, Loader, AlertTriangle,
   Ban, MessageSquare,
 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain,
-  appBtnPrimary, appError, appEmpty, appBadgeActive, appBadgeWarning,
-  appBadgeInfo, appBadgeError,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appBtnPrimary, appError, appEmpty, appBadgeActive, appBadgeWarning, appBadgeInfo, appBadgeError } from '../../styles/appStyles';
 
 export default function WorkflowInstancePage() {
   const { id } = useParams();
@@ -82,7 +78,7 @@ export default function WorkflowInstancePage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className={appPageShell}>
         <div className="flex items-center gap-3">
           <Link to="/workflows" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5">
             <ArrowLeft size={20} />

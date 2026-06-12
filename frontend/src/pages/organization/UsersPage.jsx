@@ -6,13 +6,7 @@ import { rolesAPI } from '../../api/roles';
 import { departmentsAPI } from '../../api/departments';
 import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, UserCheck, UserX } from 'lucide-react';
-import {
-  orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgSelect,
-  orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary,
-  orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted,
-  orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError,
-  orgEmpty, orgLoading, orgPagination,
-} from './orgStyles';
+import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgSelect, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
 const emptyForm = {
   id: null,
@@ -110,7 +104,7 @@ export default function UsersPage({ isSubSection = false }) {
   };
 
   const content = (
-    <div className="space-y-5 sm:space-y-6">
+    <div className={orgPageShell}>
       {!isSubSection && (
         <div>
           <h1 className={orgPageTitle}>Users</h1>
@@ -124,8 +118,8 @@ export default function UsersPage({ isSubSection = false }) {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
-        <div className="flex-1 w-full sm:max-w-md">
+      <div className={orgToolbarRow}>
+        <div className={orgSearchWrap}>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
             <input

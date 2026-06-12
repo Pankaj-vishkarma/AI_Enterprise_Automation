@@ -7,11 +7,7 @@ import { formatApiError } from '../../utils/apiError';
 import {
   Globe, Play, Loader, Terminal, Table, Download, Search, BarChart3, History, Trash2,
 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputWithIcon, appSelect,
-  appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading,
-  appTabActive, appTabInactive, appLabel, appTableWrap, appTableHead, appTh, appTr, appTd,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputWithIcon, appSelect, appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading, appTabActive, appTabInactive, appLabel, appTableWrap, appTableHead, appTh, appTr, appTd } from '../../styles/appStyles';
 
 export default function BrowserAutomationPage() {
   const queryClient = useQueryClient();
@@ -88,7 +84,7 @@ export default function BrowserAutomationPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className={appPageShell}>
         <div>
           <h1 className={`${appPageTitle} flex items-center gap-2`}>
             <Globe size={32} className="text-[#1A1A14]" />

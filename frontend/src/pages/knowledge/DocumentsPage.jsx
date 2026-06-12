@@ -4,7 +4,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Search, Upload, Trash2, X, FileText, AlertCircle, RefreshCw } from 'lucide-react';
 import {
-  appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnGhost, appBtnIconDanger,
+  appPageShell, appToolbarRow, appSearchWrap, appGrid, appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnGhost, appBtnIconDanger,
   appGlassCard, appEmpty, appModalOverlay, appModal, appError, appInputPlain, appSelect,
   appLabel, appPagination, appBadgeActive, appBadgeWarning,
 } from '../../styles/appStyles';
@@ -129,14 +129,14 @@ export default function DocumentsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
+      <div className={appPageShell}>
         <div>
           <h1 className={appPageTitle}>Knowledge Documents</h1>
           <p className={appPageDesc}>Manage your organization&apos;s knowledge base documents</p>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="flex-1 max-w-md">
+        <div className={appToolbarRow}>
+          <div className={appSearchWrap}>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#6A6A60]" size={18} />
               <input
@@ -157,7 +157,7 @@ export default function DocumentsPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className={`${appGrid} grid-cols-1 md:grid-cols-2 lg:grid-cols-3`}>
           {isLoading ? (
             <div className="col-span-full flex justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#1A1A14]/10 border-t-[#1A1A14]" />
@@ -222,7 +222,7 @@ export default function DocumentsPage() {
 
         {/* Pagination */}
         {totalPages > 1 && (
-          <div className="py-4 flex flex-col sm:flex-row items-center justify-between gap-3 mt-4">
+          <div className={`${appToolbarRow} py-4 mt-4`}>
             <span className="text-sm text-[#6A6A60]">
               Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total} documents
             </span>

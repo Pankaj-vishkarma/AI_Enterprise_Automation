@@ -7,11 +7,7 @@ import { formatApiError } from '../../utils/apiError';
 import {
   Compass, Search, Loader, FileText, BarChart3, History, Download, Trash2,
 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect,
-  appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading,
-  appTabActive, appTabInactive, appLabel,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect, appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading, appTabActive, appTabInactive, appLabel } from '../../styles/appStyles';
 
 export default function ResearchPage() {
   const queryClient = useQueryClient();
@@ -85,7 +81,7 @@ export default function ResearchPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className={appPageShell}>
         <div>
           <h1 className={`${appPageTitle} flex items-center gap-2`}>
             <Compass size={32} className="text-[#1A1A14]" />

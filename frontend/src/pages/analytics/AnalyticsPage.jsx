@@ -2,10 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
 import { BarChart3, Download, Sparkles, BookOpen, Bot, Layers, LifeBuoy, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appGlassCard, appBtnPrimary, appBtnGhost,
-  appTabActive, appTabInactive, appBadgeInactive, appBadgeWarning,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appGlassCard, appBtnPrimary, appBtnGhost, appTabActive, appTabInactive, appBadgeInactive, appBadgeWarning } from '../../styles/appStyles';
 
 export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, employees, workflows, support
@@ -42,28 +39,28 @@ Detailed metrics regarding ${reportType.toLowerCase()} have been processed. Syst
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="flex justify-between items-start">
-          <div>
-            <h1 className={`${appPageTitle} flex items-center gap-2`}>
-              <BarChart3 size={32} className="text-[#1A1A14]" />
+      <div className={appPageShell}>
+        <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start">
+          <div className="min-w-0">
+            <h1 className={`${appPageTitle} flex flex-wrap items-center gap-2`}>
+              <BarChart3 size={32} className="text-[#1A1A14] shrink-0" />
               Analytics & Reporting
             </h1>
             <p className={appPageDesc}>Monitor knowledge utilization, evaluate AI worker productivity, track automation bottlenecks, and review customer satisfaction.</p>
           </div>
 
           {/* Export Actions dropdown */}
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2 w-full md:flex-row md:w-auto md:shrink-0">
             <button
               onClick={() => handleExport("Operational Summary")}
-              className={appBtnGhost}
+              className={`${appBtnGhost} w-full md:w-auto`}
             >
               <Download size={14} />
               Export Summary
             </button>
             <button
               onClick={() => handleExport("Support Performance Report")}
-              className={appBtnPrimary}
+              className={`${appBtnPrimary} w-full md:w-auto`}
             >
               <Download size={14} />
               Export Support Report

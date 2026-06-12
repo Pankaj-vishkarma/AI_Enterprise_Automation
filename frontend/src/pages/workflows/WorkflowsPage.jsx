@@ -10,12 +10,7 @@ import { aiEmployeesAPI } from '../../api/aiEmployees';
 import {
   Layers, Plus, Play, BarChart3, History, X, Loader, Trash2, Power, Edit,
 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect,
-  appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading,
-  appModalOverlay, appModal, appLabel, appTabActive, appTabInactive,
-  appBadgeActive, appBadgeInactive, appBadgeWarning,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect, appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading, appModalOverlay, appModal, appLabel, appTabActive, appTabInactive, appBadgeActive, appBadgeInactive, appBadgeWarning } from '../../styles/appStyles';
 
 const emptyStep = () => ({
   name: '', step_type: 'approval', assignee_type: 'user', assignee_id: '', position: 0,
@@ -169,7 +164,7 @@ export default function WorkflowsPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className={appPageShell}>
         <div className="flex justify-between items-start">
           <div>
             <h1 className={`${appPageTitle} flex items-center gap-2`}>

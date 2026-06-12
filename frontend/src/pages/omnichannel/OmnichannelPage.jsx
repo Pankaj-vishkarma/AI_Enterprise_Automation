@@ -2,10 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
 import { MessageCircle, Globe, Send, User, Bot, ShieldCheck, Check, Sparkles } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appBtnPrimary, appBtnGhost, appGlassCard,
-  appInputPlain, appBadgeActive, appBadgeError, appBadgeInfo,
-} from '../../styles/appStyles';
+import { appPageShellTall, appGrid, appPageTitle, appPageDesc, appBtnPrimary, appBtnGhost, appGlassCard, appInputPlain, appBadgeActive, appBadgeError, appBadgeInfo } from '../../styles/appStyles';
 
 // Custom icons or text tags for channel types:
 // Slack: Hash icon
@@ -134,7 +131,7 @@ export default function OmnichannelPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-6xl mx-auto flex flex-col h-[calc(100vh-120px)] min-w-0 overflow-x-hidden">
+      <div className={appPageShellTall}>
         <div className="min-w-0">
           <h1 className={`${appPageTitle} flex items-center gap-2`}>
             <MessageCircle size={32} className="text-[#1A1A14] flex-shrink-0" />
@@ -144,7 +141,7 @@ export default function OmnichannelPage() {
         </div>
 
         {/* Omnichannel Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
+        <div className={`${appGrid} grid-cols-1 lg:grid-cols-4 flex-1 min-h-0 min-w-0 overflow-y-auto`}>
           {/* Inbox List (Left Column) */}
           <div className={`lg:col-span-1 ${appGlassCard} !p-4 flex flex-col h-full overflow-hidden min-w-0`}>
             <h3 className="font-bold text-xs text-[#6A6A60] uppercase tracking-wider mb-3">Unified Inbox</h3>

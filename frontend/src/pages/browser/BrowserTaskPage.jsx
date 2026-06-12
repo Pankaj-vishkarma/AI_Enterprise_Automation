@@ -4,10 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { browserAPI } from '../../api/browser';
 import { ArrowLeft, Download, Loader, Terminal, Trash2, Table } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger,
-  appTableWrap, appTableHead, appTh, appTr, appTd, appEmpty, appBadgeInfo,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger, appTableWrap, appTableHead, appTh, appTr, appTd, appEmpty, appBadgeInfo } from '../../styles/appStyles';
 
 export default function BrowserTaskPage() {
   const { id } = useParams();
@@ -65,7 +62,7 @@ export default function BrowserTaskPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className={appPageShell}>
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <Link to="/browser-automation" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5">

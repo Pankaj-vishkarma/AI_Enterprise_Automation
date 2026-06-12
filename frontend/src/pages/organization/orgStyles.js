@@ -1,5 +1,10 @@
 /** Shared earth-tone UI classes for Organization module */
 
+export const orgPageShell = 'space-y-5 sm:space-y-6 w-full';
+export const orgToolbarRow = 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4';
+export const orgSearchWrap = 'flex-1 w-full sm:max-w-md';
+export const orgGrid = 'grid gap-4 sm:gap-6';
+
 export const orgPageTitle = 'text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1A14]';
 export const orgPageDesc = 'mt-2 text-sm text-[#6A6A60] leading-relaxed';
 export const orgSectionTitle = 'text-xl font-bold text-[#1A1A14]';

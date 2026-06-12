@@ -1,5 +1,11 @@
 /** Shared earth-tone UI classes for dashboard & app pages */
 
+export const appPageShell = 'space-y-5 sm:space-y-6 w-full';
+export const appPageShellTall = 'space-y-5 sm:space-y-6 w-full flex flex-col flex-1 min-h-0';
+export const appToolbarRow = 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4';
+export const appSearchWrap = 'flex-1 w-full sm:max-w-md';
+export const appGrid = 'grid gap-4 sm:gap-6';
+
 export const appPageTitle = 'text-2xl sm:text-3xl font-bold tracking-tight text-[#1A1A14]';
 export const appPageDesc = 'mt-2 text-sm text-[#6A6A60] leading-relaxed';
 export const appSectionTitle = 'text-xl font-bold text-[#1A1A14]';

@@ -4,10 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { researchAPI } from '../../api/research';
 import { ArrowLeft, Download, Loader, Trash2, BookOpen, Link2 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger,
-  appEmpty, appBadgeInfo,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger, appEmpty, appBadgeInfo } from '../../styles/appStyles';
 
 export default function ResearchReportPage() {
   const { id } = useParams();
@@ -59,7 +56,7 @@ export default function ResearchReportPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-4xl mx-auto">
+      <div className={appPageShell}>
         <div className="flex items-center gap-3">
           <Link to="/research" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5">
             <ArrowLeft size={20} />

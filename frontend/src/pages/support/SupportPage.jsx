@@ -2,11 +2,7 @@ import React, { useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
 import { LifeBuoy, Plus, Sparkles, MessageCircle, AlertTriangle, X, Heart, Meh, Frown, CheckCircle } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appBtnPrimary, appBtnGhost, appBtnIcon,
-  appGlassCard, appCardPadding, appInputPlain, appSelect, appLabel,
-  appModalOverlay, appModal, appBadgeError, appBadgeActive, appBadgeWarning,
-} from '../../styles/appStyles';
+import { appPageShellTall, appToolbarRow, appGrid, appPageTitle, appPageDesc, appBtnPrimary, appBtnGhost, appBtnIcon, appGlassCard, appCardPadding, appInputPlain, appSelect, appLabel, appModalOverlay, appModal, appBadgeError, appBadgeActive, appBadgeWarning } from '../../styles/appStyles';
 
 const INITIAL_TICKETS = [
   {
@@ -118,8 +114,8 @@ export default function SupportPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-6xl mx-auto flex flex-col h-[calc(100vh-120px)] min-w-0 overflow-x-hidden">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+      <div className={appPageShellTall}>
+        <div className={`${appToolbarRow} sm:items-start`}>
           <div className="min-w-0">
             <h1 className={`${appPageTitle} flex items-center gap-2`}>
               <LifeBuoy size={32} className="text-[#1A1A14] flex-shrink-0" />
@@ -137,7 +133,7 @@ export default function SupportPage() {
         </div>
 
         {/* Kanban Board Container */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 flex-1 min-h-0 min-w-0 overflow-y-auto">
+        <div className={`${appGrid} grid-cols-1 md:grid-cols-3 flex-1 min-h-0 min-w-0 overflow-y-auto`}>
           {["New", "In Progress", "Resolved"].map(colStatus => {
             const colTickets = tickets.filter(t => t.status === colStatus);
             return (

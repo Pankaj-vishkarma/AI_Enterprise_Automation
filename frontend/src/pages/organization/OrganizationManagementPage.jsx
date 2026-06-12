@@ -6,7 +6,7 @@ import TeamsPage from './TeamsPage';
 import RolesPage from './RolesPage';
 import PermissionsPage from './PermissionsPage';
 import { Users, Network, Lock, Shield, Sparkles } from 'lucide-react';
-import { orgPageTitle, orgPageDesc, orgCard, orgTabActive, orgTabInactive } from './orgStyles';
+import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgCard, orgTabActive, orgTabInactive } from './orgStyles';
 
 export default function OrganizationManagementPage() {
   const [activeTab, setActiveTab] = useState('users');
@@ -23,7 +23,7 @@ export default function OrganizationManagementPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-7xl mx-auto">
+      <div className={orgPageShell}>
         <div>
           <div className="inline-flex items-center gap-2 rounded-full pl-1 pr-3 py-1 text-xs w-fit mb-4 bg-white/45 border border-[#1A1A14]/10 backdrop-blur-md">
             <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] text-[#F1F0E3] font-medium flex items-center gap-1.5">

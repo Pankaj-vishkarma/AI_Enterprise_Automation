@@ -6,11 +6,7 @@ import { aiEmployeesAPI } from '../../api/aiEmployees';
 import { departmentsAPI } from '../../api/departments';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Plus, Bot, UserCheck, Settings, X, Loader } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon,
-  appModalOverlay, appModal, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel,
-  appBadgeActive, appBadgeWarning, appBadgeInfo,
-} from '../../styles/appStyles';
+import { appPageShell, appToolbarRow, appGrid, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon, appModalOverlay, appModal, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel, appBadgeActive, appBadgeWarning, appBadgeInfo } from '../../styles/appStyles';
 
 const ROLE_COLORS = {
   'HR Assistant': 'bg-blue-100 text-blue-700 border-blue-200',
@@ -135,8 +131,8 @@ export default function EmployeesPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-start">
+      <div className={appPageShell}>
+        <div className={`${appToolbarRow} sm:items-start`}>
           <div>
             <h1 className={`${appPageTitle} flex items-center gap-2`}>
               <Bot size={32} className="text-[#1A1A14]" />
@@ -168,7 +164,7 @@ export default function EmployeesPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className={`${appGrid} grid-cols-1 md:grid-cols-2 lg:grid-cols-3`}>
             {employees.map((emp) => (
               <Link
                 key={emp.id}

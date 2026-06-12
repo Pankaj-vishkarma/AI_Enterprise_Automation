@@ -7,12 +7,7 @@ import {
   GitMerge, Play, Loader, FileText, CheckCircle2, XCircle, Download,
   Plus, Trash2, Edit, BarChart3, History, Users, X, AlertTriangle,
 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appCard, appCardPadding,
-  appInputPlain, appBtnPrimary, appBtnGhost, appBtnIconPrimary, appBtnIconDanger,
-  appTableWrap, appTr, appError, appEmpty, appTabActive, appTabInactive, appLabel,
-  appModalOverlay, appBadgeActive, appBadgeWarning, appBadgeError, appBadgeInfo,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appCard, appCardPadding, appInputPlain, appBtnPrimary, appBtnGhost, appBtnIconPrimary, appBtnIconDanger, appTableWrap, appTr, appError, appEmpty, appTabActive, appTabInactive, appLabel, appModalOverlay, appBadgeActive, appBadgeWarning, appBadgeError, appBadgeInfo } from '../../styles/appStyles';
 
 const emptyTeamForm = { id: null, name: '', description: '', memberIds: [] };
 
@@ -159,7 +154,7 @@ export default function CollaborationPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className={appPageShell}>
         <div>
           <h1 className={`${appPageTitle} flex items-center gap-2`}>
             <GitMerge size={32} className="text-[#1A1A14]" />

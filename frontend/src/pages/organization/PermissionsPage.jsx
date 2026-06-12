@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { permissionsAPI } from '../../api/permissions';
 import { Shield } from 'lucide-react';
-import { orgPageTitle, orgPageDesc, orgSectionTitle, orgGlassCard, orgEmpty, orgLoading } from './orgStyles';
+import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgGlassCard, orgEmpty, orgLoading } from './orgStyles';
 
 export default function PermissionsPage({ isSubSection = false }) {
   const { data: permissionsData, isLoading } = useQuery({
@@ -14,7 +14,7 @@ export default function PermissionsPage({ isSubSection = false }) {
   const permissions = permissionsData?.data || [];
 
   const content = (
-    <div className="space-y-5 sm:space-y-6">
+    <div className={orgPageShell}>
       {!isSubSection ? (
         <div>
           <h1 className={orgPageTitle}>Permissions</h1>

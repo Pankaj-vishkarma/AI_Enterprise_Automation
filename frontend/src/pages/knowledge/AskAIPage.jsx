@@ -2,9 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Send, Loader, Bot, User, HelpCircle, Sparkles } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appGlassCard, appInputPlain, appBtnPrimary, appBtnGhost,
-} from '../../styles/appStyles';
+import { appPageShellTall, appPageTitle, appPageDesc, appGlassCard, appInputPlain, appBtnPrimary, appBtnGhost } from '../../styles/appStyles';
 
 const SUGGESTED_QUESTIONS = [
   "What is the reimbursement policy?",
@@ -67,7 +65,7 @@ export default function AskAIPage() {
 
   return (
     <MainLayout>
-      <div className="flex flex-col h-[calc(100vh-120px)] max-w-4xl mx-auto min-h-0">
+      <div className={appPageShellTall}>
         <div className="mb-4 flex-shrink-0">
           <h1 className={`${appPageTitle} flex items-center gap-2`}>
             <Sparkles className="text-[#1A1A14]" size={24} />

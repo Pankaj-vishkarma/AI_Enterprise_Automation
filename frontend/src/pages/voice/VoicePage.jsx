@@ -2,10 +2,7 @@ import React, { useRef, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import { operationsAPI } from '../../api/operations';
 import { Mic, MicOff, Loader, MessageSquare, Volume2, Sparkles, Play } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost,
-  appBadgeActive, appBadgeWarning, appBadgeInfo, appEmpty,
-} from '../../styles/appStyles';
+import { appPageShellTall, appGrid, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBadgeActive, appBadgeWarning, appBadgeInfo, appEmpty } from '../../styles/appStyles';
 
 const VOICE_EXCHANGES = {
   "What is the leave policy?": {
@@ -83,7 +80,7 @@ export default function VoicePage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-4xl mx-auto flex flex-col h-[calc(100vh-120px)]">
+      <div className={appPageShellTall}>
         <div>
           <h1 className={`${appPageTitle} flex items-center gap-2`}>
             <Mic size={32} className="text-[#1A1A14]" />
@@ -92,7 +89,7 @@ export default function VoicePage() {
           <p className={appPageDesc}>Interact with your organization's knowledge base and support tickets using natural voice commands.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 flex-1 min-h-0">
+        <div className={`${appGrid} grid-cols-1 md:grid-cols-3 flex-1 min-h-0`}>
           {/* Wave Visualizer & Controller Column */}
           <div className={`md:col-span-1 ${appGlassCard} flex flex-col justify-between items-center !p-6`}>
             <div className="text-center w-full space-y-1">

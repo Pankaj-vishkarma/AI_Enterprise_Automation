@@ -19,11 +19,7 @@ import {
   XCircle,
   Clock,
 } from 'lucide-react';
-import {
-  appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon,
-  appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel,
-  appBadgeActive, appBadgeError, appBadgeInfo, appTabActive, appTabInactive,
-} from '../../styles/appStyles';
+import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel, appBadgeActive, appBadgeError, appBadgeInfo, appTabActive, appTabInactive } from '../../styles/appStyles';
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
@@ -185,7 +181,7 @@ export default function EmployeeDetailPage() {
 
   return (
     <MainLayout>
-      <div className="space-y-6 max-w-5xl mx-auto">
+      <div className={appPageShell}>
         <div className="flex items-center gap-3">
           <Link to="/employees" className={appBtnIcon}>
             <ArrowLeft size={20} />

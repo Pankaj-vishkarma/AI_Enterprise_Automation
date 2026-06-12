@@ -1,41 +1,132 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
-import { operationsAPI } from '../../api/operations';
-import { BarChart3, Download, Sparkles, BookOpen, Bot, Layers, LifeBuoy, AlertCircle, FileText, CheckCircle2 } from 'lucide-react';
-import { appPageShell, appPageTitle, appPageDesc, appGlassCard, appBtnPrimary, appBtnGhost, appTabActive, appTabInactive, appBadgeInactive, appBadgeWarning } from '../../styles/appStyles';
+import { analyticsAPI } from '../../api/analytics';
+import {
+  BarChart3, Download, Sparkles, BookOpen, Bot, Layers, LifeBuoy, AlertCircle,
+  Mic, MessageCircle, Search, Globe, Building2, Users,
+} from 'lucide-react';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
+} from 'recharts';
+import {
+  appPageShell, appPageTitle, appPageDesc, appGlassCard, appBtnPrimary, appBtnGhost,
+  appTabActive, appTabInactive, appBadgeInactive, appBadgeWarning, appInputPlain, appLabel,
+  appEmpty,
+} from '../../styles/appStyles';
+
+const CHART_COLORS = ['#1A1A14', '#4B4B42', '#6A6A60', '#E8C547', '#8B7355', '#C4A882'];
+
+const TABS = [
+  { id: 'knowledge', label: 'Knowledge', icon: BookOpen },
+  { id: 'employees', label: 'AI Employees', icon: Bot },
+  { id: 'workflows', label: 'Workflows', icon: Layers },
+  { id: 'support', label: 'Support', icon: LifeBuoy },
+  { id: 'research', label: 'Research', icon: Search },
+  { id: 'browser', label: 'Browser', icon: Globe },
+  { id: 'voice', label: 'Voice', icon: Mic },
+  { id: 'omnichannel', label: 'Omnichannel', icon: MessageCircle },
+  { id: 'organization', label: 'Organization', icon: Building2 },
+];
+
+function BarList({ items, labelKey, valueKey, suffix = '' }) {
+  if (!items?.length) return <div className={appEmpty}>No data available.</div>;
+  return (
+    <div className="space-y-2">
+      {items.map((item, idx) => (
+        <div key={idx} className="flex justify-between items-center p-3 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10">
+          <span className="text-xs font-semibold text-[#1A1A14] truncate mr-2">{item[labelKey]}</span>
+          <span className="text-xs text-[#1A1A14] font-bold flex-shrink-0">{item[valueKey]}{suffix}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProgressBars({ items, labelKey, valueKey, maxValue }) {
+  if (!items?.length) return <div className={appEmpty}>No data available.</div>;
+  const max = maxValue || Math.max(...items.map((i) => i[valueKey]), 1);
+  return (
+    <div className="space-y-3">
+      {items.map((item, idx) => (
+        <div key={idx} className="space-y-1">
+          <div className="flex justify-between text-xs font-semibold">
+            <span className="text-[#1A1A14] truncate">{item[labelKey]}</span>
+            <span className="text-[#1A1A14] font-bold">{item[valueKey]}</span>
+          </div>
+          <div className="w-full bg-[#1A1A14]/10 rounded-full h-1.5">
+            <div
+              className="h-1.5 rounded-full bg-gradient-to-r from-[#1A1A14] to-[#4B4B42]"
+              style={{ width: `${Math.min(100, (item[valueKey] / max) * 100)}%` }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function AnalyticsPage() {
-  const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, employees, workflows, support
-  const [analytics, setAnalytics] = useState(null);
+  const [activeTab, setActiveTab] = useState('knowledge');
+  const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const loadDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {};
+      if (startDate) params.start_date = new Date(startDate).toISOString();
+      if (endDate) params.end_date = new Date(endDate).toISOString();
+      const { data } = await analyticsAPI.dashboard(params);
+      setDashboard(data);
+    } catch {
+      setDashboard(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [startDate, endDate]);
 
   useEffect(() => {
-    operationsAPI.analytics().then(({ data }) => setAnalytics(data)).catch(() => {});
-  }, []);
+    loadDashboard();
+  }, [loadDashboard]);
 
-  const handleExport = (reportType) => {
-    let reportContent = `
-# Executive Performance Report: ${reportType} 2026
-
-## 1. Summary Metrics
-- **Analysis Period:** Q1 2026
-- **System Adoption:** +28% increase in internal AI employee queries.
-- **Workflow Efficiency:** Average cycle times reduced by 3.2 days.
-- **Support CSAT:** 4.8 / 5.0 average user rating.
-
-## 2. Segment Insights
-Detailed metrics regarding ${reportType.toLowerCase()} have been processed. Systems are running within target operational thresholds.
-
----
-*Report generated automatically by the Analytics & Reporting engine.*
-    `;
-    const element = document.createElement("a");
-    const file = new Blob([reportContent], {type: 'text/plain'});
-    element.href = URL.createObjectURL(file);
-    element.download = `${reportType.replace(/\s+/g, '_')}_Report_2026.md`;
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+  const handleExport = async (reportType) => {
+    try {
+      const params = { format: 'markdown' };
+      if (startDate) params.start_date = new Date(startDate).toISOString();
+      if (endDate) params.end_date = new Date(endDate).toISOString();
+      const { data } = await analyticsAPI.report(reportType, params);
+      const element = document.createElement('a');
+      const file = new Blob([data.content], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = `${reportType}_report.md`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } catch {
+      /* ignore */
+    }
   };
+
+  const s = dashboard?.summary;
+  const k = dashboard?.knowledge;
+  const e = dashboard?.employees;
+  const w = dashboard?.workflows;
+  const sup = dashboard?.support;
+  const r = dashboard?.research;
+  const b = dashboard?.browser;
+  const v = dashboard?.voice;
+  const o = dashboard?.omnichannel;
+  const org = dashboard?.organization;
+
+  const supportCategoryData = Object.entries(sup?.category_distribution || {}).map(([name, value]) => ({
+    name, value,
+  }));
+
+  const channelData = Object.entries(o?.conversations_by_channel || {}).map(([name, value]) => ({
+    name, value,
+  }));
 
   return (
     <MainLayout>
@@ -44,267 +135,356 @@ Detailed metrics regarding ${reportType.toLowerCase()} have been processed. Syst
           <div className="min-w-0">
             <h1 className={`${appPageTitle} flex flex-wrap items-center gap-2`}>
               <BarChart3 size={32} className="text-[#1A1A14] shrink-0" />
-              Analytics & Reporting
+              Analytics &amp; Reporting
             </h1>
-            <p className={appPageDesc}>Monitor knowledge utilization, evaluate AI worker productivity, track automation bottlenecks, and review customer satisfaction.</p>
+            <p className={appPageDesc}>
+              Monitor knowledge utilization, AI productivity, workflow performance, support metrics, and cross-channel engagement.
+            </p>
           </div>
-
-          {/* Export Actions dropdown */}
           <div className="flex flex-col gap-2 w-full md:flex-row md:w-auto md:shrink-0">
-            <button
-              onClick={() => handleExport("Operational Summary")}
-              className={`${appBtnGhost} w-full md:w-auto`}
-            >
-              <Download size={14} />
-              Export Summary
+            <button type="button" onClick={() => handleExport('executive')} className={`${appBtnGhost} w-full md:w-auto`}>
+              <Download size={14} /> Executive Summary
             </button>
-            <button
-              onClick={() => handleExport("Support Performance Report")}
-              className={`${appBtnPrimary} w-full md:w-auto`}
-            >
-              <Download size={14} />
-              Export Support Report
+            <button type="button" onClick={() => handleExport('operational')} className={`${appBtnGhost} w-full md:w-auto`}>
+              <Download size={14} /> Operational Report
+            </button>
+            <button type="button" onClick={() => handleExport('business')} className={`${appBtnPrimary} w-full md:w-auto`}>
+              <Download size={14} /> Business Report
             </button>
           </div>
         </div>
 
-        {/* Top KPI row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { title: "Knowledge Queries", value: analytics?.summary.knowledge_queries ?? "0", icon: BookOpen, label: "organization total" },
-            { title: "Active AI Employees", value: `${analytics?.summary.active_ai_employees ?? 0} Active`, icon: Bot, label: "currently deployed" },
-            { title: "Workflow Throughput", value: `${analytics?.summary.workflow_completion_rate ?? 0}%`, icon: Layers, label: "completion rate" },
-            { title: "Resolved Tickets", value: analytics?.summary.resolved_support_tickets ?? "0", icon: LifeBuoy, label: "organization total" }
-          ].map((kpi, idx) => (
-            <div key={idx} className={appGlassCard}>
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-[#6A6A60] uppercase">{kpi.title}</span>
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center border text-[#1A1A14] bg-[#1A1A14]/5 border-[#1A1A14]/10">
-                  <kpi.icon size={16} />
-                </div>
-              </div>
-              <div className="space-y-1 mt-3">
-                <p className="text-2xl font-bold text-[#1A1A14]">{kpi.value}</p>
-                <p className="text-[10px] text-emerald-700 font-semibold">{kpi.label}</p>
-              </div>
-            </div>
-          ))}
+        <div className={`${appGlassCard} grid grid-cols-1 sm:grid-cols-2 gap-3`}>
+          <div>
+            <label className={appLabel}>Start Date</label>
+            <input type="date" value={startDate} onChange={(ev) => setStartDate(ev.target.value)} className={appInputPlain} />
+          </div>
+          <div>
+            <label className={appLabel}>End Date</label>
+            <input type="date" value={endDate} onChange={(ev) => setEndDate(ev.target.value)} className={appInputPlain} />
+          </div>
         </div>
 
-        {/* Tab selection */}
-        <div className="border-b border-[#1A1A14]/10 flex gap-4 text-xs font-bold uppercase tracking-wider">
-          {[
-            { id: 'knowledge', label: 'Knowledge Analytics', icon: BookOpen },
-            { id: 'employees', label: 'AI Employees', icon: Bot },
-            { id: 'workflows', label: 'Workflow Performance', icon: Layers },
-            { id: 'support', label: 'Customer Support', icon: LifeBuoy }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={activeTab === tab.id ? appTabActive : appTabInactive}
-            >
-              <tab.icon size={14} />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Tab contents */}
-        <div className={`${appGlassCard} min-h-[300px]`}>
-          {activeTab === 'knowledge' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Popular queries */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">Most Searched Topics</h3>
-                <div className="space-y-2">
-                  {[
-                    { topic: "Reimbursement Policy", count: 128 },
-                    { topic: "Annual Paid Leaves allowed", count: 92 },
-                    { topic: "Customer Refund Process", count: 74 },
-                    { topic: "Employee Probation period", count: 48 }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10">
-                      <span className="text-xs font-semibold text-[#1A1A14]">{item.topic}</span>
-                      <span className="text-xs text-[#1A1A14] font-bold">{item.count} queries</span>
+        {loading ? (
+          <div className={appEmpty}>Loading analytics...</div>
+        ) : !dashboard ? (
+          <div className={appEmpty}>Unable to load analytics data.</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { title: 'Knowledge Queries', value: s?.knowledge_queries ?? 0, icon: BookOpen },
+                { title: 'Active AI Employees', value: s?.active_ai_employees ?? 0, icon: Bot },
+                { title: 'Workflow Completion', value: `${s?.workflow_completion_rate ?? 0}%`, icon: Layers },
+                { title: 'Resolved Tickets', value: s?.resolved_support_tickets ?? 0, icon: LifeBuoy },
+                { title: 'Conversations', value: s?.total_conversations ?? 0, icon: MessageCircle },
+                { title: 'Voice Sessions', value: s?.total_voice_sessions ?? 0, icon: Mic },
+                { title: 'Research Reports', value: s?.total_research_reports ?? 0, icon: Search },
+                { title: 'Active Users', value: s?.active_users ?? 0, icon: Users },
+              ].map((kpi) => (
+                <div key={kpi.title} className={appGlassCard}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-[#6A6A60] uppercase">{kpi.title}</span>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center border text-[#1A1A14] bg-[#1A1A14]/5 border-[#1A1A14]/10">
+                      <kpi.icon size={16} />
                     </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Knowledge gaps */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14] flex items-center gap-1.5">
-                  <AlertCircle className="text-amber-600" size={16} />
-                  Identified Knowledge Gaps
-                </h3>
-                <p className="text-xs text-[#6A6A60]">Topics queried that returned empty or low-confidence results from the document base.</p>
-                <div className="space-y-2">
-                  {[
-                    { topic: "Travel insurance coverage rules", missCount: 14, severity: "High" },
-                    { topic: "Maternity leave payout formula", missCount: 8, severity: "Medium" },
-                    { topic: "Corporate wellness gym discount", missCount: 5, severity: "Low" }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-[#1A1A14]/[0.02] border border-[#1A1A14]/10 border-dashed rounded-xl">
-                      <div className="text-xs font-medium text-[#1A1A14]">
-                        <p className="font-semibold">{item.topic}</p>
-                        <p className="text-[10px] text-[#6A6A60]">Failed query count: {item.missCount}</p>
-                      </div>
-                      <span className={`text-[10px] font-bold ${
-                        item.severity === 'High' ? 'px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800' :
-                        item.severity === 'Medium' ? appBadgeWarning :
-                        appBadgeInactive
-                      }`}>
-                        {item.severity} Gap
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'employees' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Usage stats */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">AI Agent Usage Share</h3>
-                <div className="space-y-4">
-                  {[
-                    { name: "Alex - Support Assistant", percent: 45, color: "bg-gradient-to-r from-[#1A1A14] to-[#4B4B42]" },
-                    { name: "Emma - HR Assistant", percent: 25, color: "bg-[#4B4B42]" },
-                    { name: "David - Research Assistant", percent: 18, color: "bg-[#6A6A60]" },
-                    { name: "Sarah - Sales Assistant", percent: 12, color: "bg-[#E8C547]" }
-                  ].map((agent, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-[#1A1A14]">{agent.name}</span>
-                        <span className="text-[#1A1A14] font-bold">{agent.percent}%</span>
-                      </div>
-                      <div className="w-full bg-[#1A1A14]/10 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full ${agent.color}`} style={{ width: `${agent.percent}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Task completion rates */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">Task Completion Metrics</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10 text-center space-y-1">
-                    <p className="text-2xl font-bold text-[#1A1A14]">1,482</p>
-                    <p className="text-xs text-[#6A6A60]">Total Tasks Executed</p>
                   </div>
-                  <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10 text-center space-y-1">
-                    <p className="text-2xl font-bold text-[#1A1A14]">94.8%</p>
-                    <p className="text-xs text-emerald-700 font-semibold">Success rate</p>
+                  <p className="text-2xl font-bold text-[#1A1A14] mt-3">{kpi.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="border-b border-[#1A1A14]/10 flex flex-wrap gap-2 text-xs font-bold uppercase tracking-wider">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveTab(tab.id)}
+                  className={activeTab === tab.id ? appTabActive : appTabInactive}
+                >
+                  <tab.icon size={14} />
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className={`${appGlassCard} min-h-[300px]`}>
+              {activeTab === 'knowledge' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Searched Topics</h3>
+                    <BarList items={k?.most_searched_topics} labelKey="topic" valueKey="count" suffix=" queries" />
                   </div>
-                </div>
-                <div className="p-3.5 bg-[#1A1A14]/5 border border-[#1A1A14]/10 rounded-xl text-xs leading-relaxed text-[#1A1A14] flex items-start gap-2">
-                  <Sparkles className="text-[#1A1A14] flex-shrink-0 mt-0.5" size={14} />
-                  <span><strong>AI Efficiency Peak:</strong> Support Assistant automated 42% of inbound support cases today with zero human intervention.</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'workflows' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Throughput */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">Workflow Completion Success</h3>
-                <div className="space-y-4">
-                  {[
-                    { label: "Refund Processing", rate: 100, color: "bg-gradient-to-r from-[#1A1A14] to-[#4B4B42]" },
-                    { label: "Employee Onboarding", rate: 84, color: "bg-[#4B4B42]" },
-                    { label: "Leave Approvals", rate: 93, color: "bg-[#1A1A14]" },
-                    { label: "Vendor Approvals", rate: 72, color: "bg-[#E8C547]" }
-                  ].map((wf, idx) => (
-                    <div key={idx} className="space-y-1">
-                      <div className="flex justify-between text-xs font-semibold">
-                        <span className="text-[#1A1A14]">{wf.label}</span>
-                        <span className="text-[#1A1A14]">{wf.rate}%</span>
-                      </div>
-                      <div className="w-full bg-[#1A1A14]/10 rounded-full h-1.5">
-                        <div className={`h-1.5 rounded-full ${wf.color}`} style={{ width: `${wf.rate}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Bottlenecks */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">Identified Process Bottlenecks</h3>
-                <div className="space-y-2">
-                  {[
-                    { step: "Finance Team Sign-off", delay: "2.4 days avg delay", severity: "Critical" },
-                    { step: "IT Asset Allocation check", delay: "1.1 days avg delay", severity: "Minor" }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex justify-between items-center p-3 bg-red-50/40 border border-red-100 rounded-xl text-xs">
-                      <div>
-                        <p className="font-semibold text-[#1A1A14]">{item.step}</p>
-                        <p className="text-[10px] text-[#6A6A60]">{item.delay}</p>
-                      </div>
-                      <span className={`text-[9px] font-bold ${
-                        item.severity === 'Critical' ? 'px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800' : appBadgeWarning
-                      }`}>
-                        {item.severity}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'support' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Ticket volume metrics */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">Ticket Volumes by Category</h3>
-                <div className="space-y-3">
-                  {[
-                    { label: "Billing Issues", count: 48, rate: 45 },
-                    { label: "Technical Problems", count: 32, rate: 30 },
-                    { label: "Feature Requests", count: 18, rate: 17 },
-                    { label: "General Questions", count: 8, rate: 8 }
-                  ].map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs font-semibold">
-                      <span className="text-[#1A1A14]">{item.label}</span>
-                      <div className="flex items-center gap-3">
-                        <span className="text-[#6A6A60]">{item.count} tickets</span>
-                        <div className="w-16 bg-[#1A1A14]/10 h-1.5 rounded-full">
-                          <div className="bg-gradient-to-r from-[#1A1A14] to-[#4B4B42] h-1.5 rounded-full" style={{ width: `${item.rate}%` }}></div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14] flex items-center gap-1.5">
+                      <AlertCircle className="text-amber-600" size={16} />
+                      Knowledge Gaps
+                    </h3>
+                    <div className="space-y-2">
+                      {(k?.knowledge_gaps || []).map((item, idx) => (
+                        <div key={idx} className="flex justify-between items-center p-3 bg-[#1A1A14]/[0.02] border border-dashed border-[#1A1A14]/10 rounded-xl">
+                          <div className="text-xs">
+                            <p className="font-semibold text-[#1A1A14]">{item.topic}</p>
+                            <p className="text-[10px] text-[#6A6A60]">{item.count} missed queries</p>
+                          </div>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.severity === 'High' ? 'bg-red-100 text-red-800' :
+                              item.severity === 'Medium' ? appBadgeWarning : appBadgeInactive
+                            }`}>{item.severity}</span>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Accessed Documents</h3>
+                    <BarList items={k?.most_accessed_documents} labelKey="title" valueKey="count" suffix=" hits" />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'employees' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Active Employees</h3>
+                    <ProgressBars
+                      items={(e?.most_active_employees || []).map((a) => ({
+                        name: a.name,
+                        runs: a.runs,
+                      }))}
+                      labelKey="name"
+                      valueKey="runs"
+                    />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Task Completion Metrics</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10 text-center">
+                        <p className="text-2xl font-bold text-[#1A1A14]">{e?.total_runs ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Total Runs</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10 text-center">
+                        <p className="text-2xl font-bold text-[#1A1A14]">{e?.success_rate ?? 0}%</p>
+                        <p className="text-xs text-emerald-700 font-semibold">Success Rate</p>
                       </div>
                     </div>
-                  ))}
+                    <div className="p-3.5 bg-[#1A1A14]/5 border border-[#1A1A14]/10 rounded-xl text-xs flex gap-2">
+                      <Sparkles size={14} className="flex-shrink-0 mt-0.5" />
+                      <span>Top tools: {(e?.tool_usage || []).slice(0, 3).map((t) => t.tool).join(', ') || 'None yet'}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Resolution times */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-bold text-[#1A1A14]">Support Performance Metrics</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10 text-center space-y-1">
-                    <p className="text-xl font-bold text-[#1A1A14]">14.2 min</p>
-                    <p className="text-[10px] text-[#6A6A60] uppercase font-bold tracking-wider">Avg Resolution Time</p>
+              {activeTab === 'workflows' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Workflow Completion</h3>
+                    <ProgressBars
+                      items={(w?.workflow_performance || []).map((wf) => ({
+                        name: wf.workflow_name,
+                        rate: wf.completion_rate,
+                      }))}
+                      labelKey="name"
+                      valueKey="rate"
+                    />
                   </div>
-                  <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border border-[#1A1A14]/10 text-center space-y-1">
-                    <p className="text-xl font-bold text-[#1A1A14]">98.2%</p>
-                    <p className="text-[10px] text-[#6A6A60] uppercase font-bold tracking-wider">CSAT Score</p>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Bottlenecks &amp; Approvals</h3>
+                    <div className="grid grid-cols-2 gap-4 mb-3">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-xl font-bold">{w?.pending_approvals ?? 0}</p>
+                        <p className="text-[10px] text-[#6A6A60]">Pending Approvals</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-xl font-bold">{w?.average_completion_hours ?? '—'}</p>
+                        <p className="text-[10px] text-[#6A6A60]">Avg Hours</p>
+                      </div>
+                    </div>
+                    <BarList
+                      items={(w?.bottlenecks || []).map((b) => ({
+                        step: b.step_name,
+                        delay: `${b.delay_hours}h`,
+                      }))}
+                      labelKey="step"
+                      valueKey="delay"
+                    />
                   </div>
                 </div>
-                <div className="p-3 bg-[#1A1A14]/[0.03] border border-[#1A1A14]/10 rounded-xl text-xs text-[#6A6A60]">
-                  <strong className="text-[#1A1A14]">SLA Target Alert:</strong> All tickets resolved today complied with the SLA limit of under 30 minutes resolution threshold.
+              )}
+
+              {activeTab === 'support' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Tickets by Category</h3>
+                    {supportCategoryData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={220}>
+                        <BarChart data={supportCategoryData}>
+                          <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                          <YAxis tick={{ fontSize: 10 }} />
+                          <Tooltip />
+                          <Bar dataKey="value" fill="#1A1A14" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className={appEmpty}>No support tickets yet.</div>
+                    )}
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Support Performance</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-xl font-bold">{sup?.average_resolution_hours ?? '—'} hrs</p>
+                        <p className="text-[10px] text-[#6A6A60]">Avg Resolution</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-xl font-bold">{sup?.resolution_rate ?? 0}%</p>
+                        <p className="text-[10px] text-[#6A6A60]">Resolution Rate</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-xl font-bold">{sup?.open_tickets ?? 0}</p>
+                        <p className="text-[10px] text-[#6A6A60]">Open Tickets</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-xl font-bold">{sup?.escalation_rate ?? 0}%</p>
+                        <p className="text-[10px] text-[#6A6A60]">Escalation Rate</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-[#6A6A60]">
+                      Sentiment: {Object.entries(sup?.sentiment_distribution || {}).map(([k2, v]) => `${k2}: ${v}`).join(' · ') || 'N/A'}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {activeTab === 'research' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Requested Topics</h3>
+                    <BarList items={r?.most_requested_topics} labelKey="topic" valueKey="count" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Research Metrics</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{r?.total_reports ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Total Reports</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{r?.success_rate ?? 0}%</p>
+                        <p className="text-xs text-emerald-700">Success Rate</p>
+                      </div>
+                    </div>
+                    <BarList items={r?.research_categories} labelKey="research_type" valueKey="count" />
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'browser' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Task Types</h3>
+                    <BarList items={b?.task_type_breakdown} labelKey="task_type" valueKey="count" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Browser Automation</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{b?.total_tasks ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Total Tasks</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{b?.success_rate ?? 0}%</p>
+                        <p className="text-xs text-emerald-700">Success Rate</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'voice' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Used Assistants</h3>
+                    <BarList items={v?.most_used_assistants} labelKey="assistant" valueKey="count" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Used Commands</h3>
+                    <BarList items={v?.most_used_commands} labelKey="intent" valueKey="count" />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{v?.total_sessions ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Sessions</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{v?.total_interactions ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Interactions</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'omnichannel' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Conversations by Channel</h3>
+                    {channelData.length > 0 ? (
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie data={channelData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label>
+                            {channelData.map((_, idx) => (
+                              <Cell key={idx} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className={appEmpty}>No conversations yet.</div>
+                    )}
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Engagement</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{o?.human_handoffs ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Human Handoffs</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{o?.ai_reply_count ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">AI Replies</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'organization' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Department Activity</h3>
+                    <BarList items={org?.department_activity} labelKey="name" valueKey="events" suffix=" events" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Organization Overview</h3>
+                    <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                      <p className="text-3xl font-bold text-[#1A1A14]">{org?.active_users ?? 0}</p>
+                      <p className="text-xs text-[#6A6A60]">Active Users</p>
+                    </div>
+                    <BarList
+                      items={(org?.most_active_users || []).map((u) => ({
+                        user: `User #${u.user_id}`,
+                        events: u.events,
+                      }))}
+                      labelKey="user"
+                      valueKey="events"
+                      suffix=" events"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </>
+        )}
       </div>
     </MainLayout>
   );

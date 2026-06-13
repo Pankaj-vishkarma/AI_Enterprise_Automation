@@ -1,37 +1,51 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { ArrowRight, Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { validateEmail } from '../../../utils/validators';
+import { useToast } from '../../../context/ToastContext';
+import { validateAuthEmail, validateAuthPassword, trimAuthEmail } from '../../../utils/validators';
+import { getApiErrorMessage } from '../../../utils/apiError';
 import BrandLogo from '../../landing/components/ui/BrandLogo';
 import { BRAND } from '../../landing/constants';
 
 export default function LoginForm() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
-  const [error, setError] = useState('');
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { email: '', password: '' },
   });
 
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('session') === 'expired') {
+      toast.warning('Your session has expired. Please sign in again.');
+    }
+    if (location.state?.message) {
+      toast.success(location.state.message);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location, toast]);
+
   const onSubmit = async (data) => {
     setIsLoading(true);
-    setError('');
     try {
-      await login(data.email, data.password);
+      await login(trimAuthEmail(data.email), data.password);
+      toast.success('Login successful.');
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      toast.error(getApiErrorMessage(err, 'Incorrect credentials. Please try again.'));
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative flex flex-col justify-center w-full max-w-[445px] mx-auto px-5 sm:px-6 lg:px-8 py-6 md:py-4">
+    <div className="relative flex flex-col justify-center w-full min-w-0 max-w-[445px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-4 box-border">
       <Link to="/" className="flex items-center gap-2.5 mb-5 md:mb-6 w-fit">
         <BrandLogo />
       </Link>
@@ -49,12 +63,6 @@ export default function LoginForm() {
         Access your {BRAND.fullName} and continue building the future.
       </p>
 
-      {error && (
-        <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4">
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-[#1A1A14] mb-1.5">Email</label>
@@ -64,7 +72,8 @@ export default function LoginForm() {
               id="email"
               {...register('email', {
                 required: 'Email is required',
-                validate: (v) => validateEmail(v) || 'Invalid email address',
+                setValueAs: trimAuthEmail,
+                validate: validateAuthEmail,
               })}
               type="email"
               autoComplete="email"
@@ -81,7 +90,10 @@ export default function LoginForm() {
             <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)] pointer-events-none" />
             <input
               id="password"
-              {...register('password', { required: 'Password is required' })}
+              {...register('password', {
+                required: 'Password is required',
+                validate: (v) => validateAuthPassword(v),
+              })}
               type={showPassword ? 'text' : 'password'}
               autoComplete="current-password"
               placeholder="Enter your password"

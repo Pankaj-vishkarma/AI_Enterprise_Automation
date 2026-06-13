@@ -5,6 +5,8 @@ from app.core.security import (
     verify_password,
     create_access_token,
     create_refresh_token,
+    create_password_reset_token,
+    decode_password_reset_token,
     decode_token,
 )
 
@@ -12,6 +14,7 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_session_repository import UserSessionRepository
+from app.utils.organization_name import ORGANIZATION_EXISTS_MESSAGE
 
 PUBLIC_REGISTRATION_ROLE = "ORG_ADMIN"
 
@@ -32,11 +35,12 @@ class AuthService:
         email: str,
         password: str,
     ):
+        trimmed_org_name = organization_name.strip()
 
-        organization = self.organization_repo.get_by_name(organization_name)
+        if self.organization_repo.get_by_normalized_name(trimmed_org_name):
+            raise ValueError(ORGANIZATION_EXISTS_MESSAGE)
 
-        if not organization:
-            organization = self.organization_repo.create(organization_name)
+        organization = self.organization_repo.create(trimmed_org_name)
 
         role = self.role_repo.get_by_name(PUBLIC_REGISTRATION_ROLE)
 
@@ -163,3 +167,49 @@ class AuthService:
         self.session_repo.delete_by_user_id(user_id)
 
         return True
+
+    def request_password_reset(self, email: str) -> bool:
+        """Always returns True to avoid email enumeration."""
+        user = self.user_repo.get_by_email(email)
+        if user and user.is_active:
+            token = create_password_reset_token(user.id)
+            # Token is issued; email delivery is integration-ready (not configured here).
+            _ = token
+        return True
+
+    def reset_password(self, token: str, new_password: str) -> bool:
+        user_id = decode_password_reset_token(token)
+        if not user_id:
+            return False
+        user = self.user_repo.get_by_id(user_id)
+        if not user or not user.is_active:
+            return False
+        password_hash = hash_password(new_password)
+        user.password_hash = password_hash
+        self.user_repo.db.commit()
+        self.session_repo.delete_by_user_id(user.id)
+        return True
+
+    def get_user_profile(self, user) -> dict:
+        last_session = self.session_repo.get_latest_by_user_id(user.id)
+        full_name = f"{user.first_name} {user.last_name or ''}".strip()
+
+        return {
+            "id": user.id,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "full_name": full_name,
+            "email": user.email,
+            "username": None,
+            "organization_id": user.organization_id,
+            "organization_name": user.organization.name if user.organization else None,
+            "role_id": user.role_id,
+            "role": user.role.name if user.role else None,
+            "department_id": user.department_id,
+            "department": user.department.name if user.department else None,
+            "team_id": user.team_id,
+            "team": user.team.name if user.team else None,
+            "is_active": user.is_active,
+            "created_at": user.created_at,
+            "last_login": last_session.created_at if last_session else None,
+        }

@@ -1,12 +1,14 @@
 /**
- * Convert FastAPI / axios error payloads into a user-readable string.
+ * Extract a user-facing message from axios/FastAPI error responses.
  */
-export function formatApiError(error, fallback = 'Request failed') {
-  const detail = error?.response?.data?.detail;
+export function getApiErrorMessage(error, fallback = 'Something went wrong. Please try again.') {
+  if (!error) return fallback;
 
-  if (detail == null) {
-    return error?.message || fallback;
+  if (!error.response) {
+    return 'Network error. Please check your connection and try again.';
   }
+
+  const detail = error.response?.data?.detail;
 
   if (typeof detail === 'string') {
     return detail;
@@ -14,21 +16,24 @@ export function formatApiError(error, fallback = 'Request failed') {
 
   if (Array.isArray(detail)) {
     return detail
-      .map((item) => {
-        if (typeof item === 'string') return item;
-        if (item && typeof item === 'object') {
-          const field = Array.isArray(item.loc) ? item.loc.filter((p) => p !== 'body').join('.') : '';
-          const msg = item.msg || JSON.stringify(item);
-          return field ? `${field}: ${msg}` : msg;
-        }
-        return String(item);
-      })
-      .join('; ');
+      .map((item) => item?.msg || item?.message || JSON.stringify(item))
+      .join('. ');
   }
 
-  if (typeof detail === 'object') {
-    return detail.msg || detail.message || JSON.stringify(detail);
+  if (error.response?.data?.message) {
+    return error.response.data.message;
   }
 
-  return String(detail);
+  if (error.response?.status === 401) {
+    return 'Invalid credentials. Please try again.';
+  }
+
+  if (error.response?.status === 403) {
+    return 'You do not have permission to perform this action.';
+  }
+
+  return fallback;
 }
+
+/** @deprecated Use getApiErrorMessage — kept for modules that import formatApiError */
+export const formatApiError = getApiErrorMessage;

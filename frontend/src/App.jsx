@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -47,6 +48,7 @@ import LandingPage from './pages/landing/LandingPage';
 
 // Other
 import NotFoundPage from './pages/NotFoundPage';
+import ProfilePage from './pages/profile/ProfilePage';
 
 // Loading component
 const LoadingSpinner = () => (
@@ -105,6 +107,7 @@ function AppRoutes() {
 
       {/* Protected routes */}
       <Route path="/dashboard" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><DashboardPage /></Suspense></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ProfilePage /></Suspense></ProtectedRoute>} />
 
       {/* Organization Management */}
       <Route path="/organization-management" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><OrganizationManagementPage /></Suspense></ProtectedRoute>} />
@@ -165,11 +168,13 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <Router>
-          <AppRoutes />
-        </Router>
-      </AuthProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <Router>
+            <AppRoutes />
+          </Router>
+        </AuthProvider>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

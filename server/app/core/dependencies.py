@@ -83,6 +83,8 @@ def get_current_user(
         .options(
             joinedload(User.role).joinedload(Role.permissions),
             joinedload(User.organization),
+            joinedload(User.department),
+            joinedload(User.team),
         )
         .filter(User.id == int(user_id))
         .first()

@@ -5,14 +5,18 @@ from app.core.database import get_db
 from app.core.dependencies import get_current_active_user
 
 from app.services.auth_service import AuthService
+from app.utils.organization_name import ORGANIZATION_EXISTS_MESSAGE
 
 from app.schemas.auth import (
     RegisterRequest,
     LoginRequest,
     RefreshTokenRequest,
     LogoutRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     TokenResponse,
-    CurrentUserResponse,
+    UserProfileResponse,
+    MessageResponse,
 )
 
 from app.core.dependencies import (
@@ -45,13 +49,25 @@ def register(
             detail="Email already registered",
         )
 
-    service.register_user(
-        organization_name=user_in.organization_name,
-        first_name=user_in.first_name,
-        last_name=user_in.last_name,
-        email=user_in.email,
-        password=user_in.password,
-    )
+    try:
+        service.register_user(
+            organization_name=user_in.organization_name,
+            first_name=user_in.first_name,
+            last_name=user_in.last_name,
+            email=user_in.email,
+            password=user_in.password,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status_code = (
+            status.HTTP_400_BAD_REQUEST
+            if detail == ORGANIZATION_EXISTS_MESSAGE
+            else status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+        raise HTTPException(
+            status_code=status_code,
+            detail=detail,
+        ) from exc
 
     token = service.authenticate(
         user_in.email,
@@ -144,23 +160,43 @@ def logout(
     return {"message": "Logged out successfully"}
 
 
+@router.post("/forgot-password", response_model=MessageResponse)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    service = AuthService(db)
+    service.request_password_reset(payload.email)
+    return {
+        "message": "If an account exists for that email, a password reset link has been sent.",
+    }
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    service = AuthService(db)
+    success = service.reset_password(payload.token, payload.password)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token",
+        )
+    return {"message": "Password reset successfully"}
+
+
 @router.get(
     "/me",
-    response_model=CurrentUserResponse,
+    response_model=UserProfileResponse,
 )
 def me(
     current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
-
-    return {
-        "id": current_user.id,
-        "first_name": current_user.first_name,
-        "last_name": current_user.last_name,
-        "email": current_user.email,
-        "organization_id": current_user.organization_id,
-        "role_id": current_user.role_id,
-        "is_active": current_user.is_active,
-    }
+    service = AuthService(db)
+    return service.get_user_profile(current_user)
 
 
 @router.get("/super-admin-test")

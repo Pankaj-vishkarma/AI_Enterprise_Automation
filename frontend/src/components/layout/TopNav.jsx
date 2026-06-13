@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 import { Menu, LogOut, User } from 'lucide-react';
 
 export default function TopNav({ onMenuClick }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const toast = useToast();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleLogout = async () => {
     await logout();
+    toast.success('Logged out successfully.');
     navigate('/login');
   };
 

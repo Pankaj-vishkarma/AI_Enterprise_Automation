@@ -10,9 +10,9 @@ export default function RegisterPage() {
   }, []);
 
   return (
-    <div className="landing-page h-[100dvh] min-h-screen overflow-hidden">
-      <div className="h-full md:grid md:grid-cols-2">
-        <div className="flex items-center justify-center h-full min-h-0 bg-[var(--bg)] md:order-2 md:border-l border-[#1A1A14]/[0.08] overflow-y-auto md:overflow-hidden">
+    <div className="landing-page h-[100dvh] min-h-screen overflow-hidden overflow-x-hidden w-full">
+      <div className="h-full w-full min-w-0 md:grid md:grid-cols-2">
+        <div className="flex items-center justify-center h-full min-h-0 min-w-0 w-full bg-[var(--bg)] md:order-2 md:border-l border-[#1A1A14]/[0.08] overflow-y-auto overflow-x-hidden">
           <RegisterForm />
         </div>
 

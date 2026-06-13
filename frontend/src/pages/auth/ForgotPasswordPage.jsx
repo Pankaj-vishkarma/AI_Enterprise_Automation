@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Mail, ArrowRight } from 'lucide-react';
 import { authAPI } from '../../api/auth';
+import { useToast } from '../../context/ToastContext';
 import { validateEmail } from '../../utils/validators';
+import { getApiErrorMessage } from '../../utils/apiError';
 import LoginVisual from './components/LoginVisual';
 import BrandLogo from '../landing/components/ui/BrandLogo';
 import '../landing/landing.css';
 
 export default function ForgotPasswordPage() {
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { email: '' },
@@ -23,14 +24,11 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    setError('');
-    setSuccess('');
-
     try {
-      await authAPI.forgotPassword(data.email);
-      setSuccess('Password reset link sent to your email. Please check your inbox.');
+      const { data: res } = await authAPI.forgotPassword(data.email);
+      toast.success(res?.message || 'If an account exists, a reset link has been sent.');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send reset link. Please try again.');
+      toast.error(getApiErrorMessage(err, 'Failed to send reset link. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -51,18 +49,6 @@ export default function ForgotPasswordPage() {
             <p className="mt-2 text-sm text-[var(--muted-foreground)] leading-relaxed">
               Enter your email and we&apos;ll send you a link to reset your password.
             </p>
-
-            {error && (
-              <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                {error}
-              </div>
-            )}
-
-            {success && (
-              <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
-                {success}
-              </div>
-            )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-4">
               <div>

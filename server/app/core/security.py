@@ -44,6 +44,29 @@ def create_refresh_token(data: dict):
     return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
 
+def create_password_reset_token(user_id: int) -> str:
+    expire = datetime.utcnow() + timedelta(hours=1)
+    payload = {
+        "sub": str(user_id),
+        "type": "password_reset",
+        "exp": expire,
+    }
+    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def decode_password_reset_token(token: str) -> int | None:
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "password_reset":
+        return None
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    try:
+        return int(user_id)
+    except (TypeError, ValueError):
+        return None
+
+
 def decode_token(token: str):
 
     try:

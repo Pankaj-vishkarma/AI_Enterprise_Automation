@@ -3,16 +3,18 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { authAPI } from '../../api/auth';
+import { useToast } from '../../context/ToastContext';
 import { validatePassword } from '../../utils/validators';
+import { getApiErrorMessage } from '../../utils/apiError';
 import LoginVisual from './components/LoginVisual';
 import BrandLogo from '../landing/components/ui/BrandLogo';
 import '../landing/landing.css';
 
 export default function ResetPasswordPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
-  const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -29,18 +31,16 @@ export default function ResetPasswordPage() {
 
   const onSubmit = async (data) => {
     if (!token) {
-      setError('Invalid or missing reset token');
+      toast.error('Invalid or missing reset token');
       return;
     }
 
     setIsLoading(true);
-    setError('');
-
     try {
-      await authAPI.resetPassword(token, data.password, data.confirmPassword);
+      await authAPI.resetPassword(token, data.password);
       navigate('/login', { state: { message: 'Password reset successfully. Please sign in.' } });
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to reset password. Please try again.');
+      toast.error(getApiErrorMessage(err, 'Failed to reset password. Please try again.'));
     } finally {
       setIsLoading(false);
     }
@@ -61,12 +61,6 @@ export default function ResetPasswordPage() {
             <p className="mt-2 text-sm text-[var(--muted-foreground)] leading-relaxed">
               Enter your new password below.
             </p>
-
-            {error && (
-              <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                {error}
-              </div>
-            )}
 
             {!token && (
               <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">

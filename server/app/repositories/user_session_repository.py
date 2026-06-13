@@ -55,3 +55,11 @@ class UserSessionRepository:
         (self.db.query(UserSession).filter(UserSession.user_id == user_id).delete())
 
         self.db.commit()
+
+    def get_latest_by_user_id(self, user_id: int):
+        return (
+            self.db.query(UserSession)
+            .filter(UserSession.user_id == user_id)
+            .order_by(UserSession.created_at.desc())
+            .first()
+        )

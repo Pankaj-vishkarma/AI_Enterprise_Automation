@@ -1,24 +1,29 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
-import { ArrowRight, Mail, Lock, Eye, EyeOff, Sparkles, Shield, User } from 'lucide-react';
+import {
+  ArrowRight, Mail, Lock, Eye, EyeOff, Sparkles, Shield, User, Building2,
+} from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
-import { validateEmail, validatePassword } from '../../../utils/validators';
+import { useToast } from '../../../context/ToastContext';
+import { validateAuthEmail, validateAuthPassword, trimAuthEmail } from '../../../utils/validators';
+import { getApiErrorMessage } from '../../../utils/apiError';
 import BrandLogo from '../../landing/components/ui/BrandLogo';
 import { BRAND } from '../../landing/constants';
 
 export default function RegisterForm() {
   const navigate = useNavigate();
   const { register: authRegister } = useAuth();
-  const [error, setError] = useState('');
+  const toast = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register, handleSubmit, watch, formState: { errors } } = useForm({
     defaultValues: {
+      organization_name: '',
       email: '',
-      firstName: '',
-      lastName: '',
+      first_name: '',
+      last_name: '',
       password: '',
       confirmPassword: '',
     },
@@ -28,26 +33,30 @@ export default function RegisterForm() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
-    setError('');
-
     try {
       await authRegister({
-        email: data.email,
-        firstName: data.firstName,
-        lastName: data.lastName,
+        organization_name: data.organization_name.trim(),
+        first_name: data.first_name.trim(),
+        last_name: data.last_name?.trim() || null,
+        email: trimAuthEmail(data.email),
         password: data.password,
-        passwordConfirmation: data.confirmPassword,
       });
+      toast.success('Registration successful.');
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.');
+      const message = getApiErrorMessage(err, 'Registration failed. Please try again.');
+      if (message === 'Organization already exists') {
+        toast.error('Organization already exists. Please use a different organization name.');
+      } else {
+        toast.error(message);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="relative flex flex-col justify-center w-full max-w-[445px] mx-auto px-5 sm:px-6 lg:px-8 py-6 md:py-4">
+    <div className="relative flex flex-col justify-center w-full min-w-0 max-w-[445px] mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-4 box-border">
       <Link to="/" className="flex items-center gap-2.5 mb-5 md:mb-6 w-fit">
         <BrandLogo />
       </Link>
@@ -65,43 +74,59 @@ export default function RegisterForm() {
         Join {BRAND.fullName} and start building your AI workforce.
       </p>
 
-      {error && (
-        <div className="mt-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-3.5">
+        <div>
+          <label htmlFor="organization_name" className="block text-sm font-medium text-[#1A1A14] mb-1.5">
+            Organization name
+          </label>
+          <div className="relative">
+            <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)] pointer-events-none" />
+            <input
+              id="organization_name"
+              {...register('organization_name', {
+                required: 'Organization name is required',
+                minLength: { value: 2, message: 'Organization name must be at least 2 characters' },
+              })}
+              type="text"
+              autoComplete="organization"
+              placeholder="Your company or team name"
+              className="landing-input"
+            />
+          </div>
+          {errors.organization_name && (
+            <p className="text-red-600 text-sm mt-1">{errors.organization_name.message}</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-[#1A1A14] mb-1.5">First name</label>
+            <label htmlFor="first_name" className="block text-sm font-medium text-[#1A1A14] mb-1.5">First name</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)] pointer-events-none" />
               <input
-                id="firstName"
-                {...register('firstName', { required: 'First name is required' })}
+                id="first_name"
+                {...register('first_name', { required: 'First name is required' })}
                 type="text"
                 autoComplete="given-name"
                 placeholder="First name"
                 className="landing-input"
               />
             </div>
-            {errors.firstName && <p className="text-red-600 text-sm mt-1">{errors.firstName.message}</p>}
+            {errors.first_name && <p className="text-red-600 text-sm mt-1">{errors.first_name.message}</p>}
           </div>
           <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-[#1A1A14] mb-1.5">Last name</label>
+            <label htmlFor="last_name" className="block text-sm font-medium text-[#1A1A14] mb-1.5">Last name</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)] pointer-events-none" />
               <input
-                id="lastName"
-                {...register('lastName', { required: 'Last name is required' })}
+                id="last_name"
+                {...register('last_name')}
                 type="text"
                 autoComplete="family-name"
-                placeholder="Last name"
+                placeholder="Last name (optional)"
                 className="landing-input"
               />
             </div>
-            {errors.lastName && <p className="text-red-600 text-sm mt-1">{errors.lastName.message}</p>}
           </div>
         </div>
 
@@ -113,7 +138,8 @@ export default function RegisterForm() {
               id="email"
               {...register('email', {
                 required: 'Email is required',
-                validate: (v) => validateEmail(v) || 'Invalid email address',
+                setValueAs: trimAuthEmail,
+                validate: validateAuthEmail,
               })}
               type="email"
               autoComplete="email"
@@ -132,7 +158,7 @@ export default function RegisterForm() {
               id="password"
               {...register('password', {
                 required: 'Password is required',
-                validate: (v) => validatePassword(v) || 'Password must be at least 8 characters with uppercase, lowercase, and numbers',
+                validate: (v) => validateAuthPassword(v, { checkStrength: true }),
               })}
               type={showPassword ? 'text' : 'password'}
               autoComplete="new-password"
@@ -159,7 +185,11 @@ export default function RegisterForm() {
               id="confirmPassword"
               {...register('confirmPassword', {
                 required: 'Please confirm your password',
-                validate: (v) => v === password || 'Passwords do not match',
+                validate: (v) => {
+                  const result = validateAuthPassword(v);
+                  if (result !== true) return result;
+                  return v === password || 'Passwords do not match';
+                },
               })}
               type={showConfirmPassword ? 'text' : 'password'}
               autoComplete="new-password"

@@ -3,6 +3,51 @@ export const validateEmail = (email) => {
   return regex.test(email);
 };
 
+const EMAIL_ERROR = 'Please enter a valid email address';
+
+/** Trim-aware email validation for auth forms. */
+export function validateAuthEmail(value) {
+  if (value == null || value === '') {
+    return 'Email is required';
+  }
+  if (typeof value !== 'string') {
+    return EMAIL_ERROR;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return 'Email is required';
+  }
+  if (/\s/.test(trimmed)) {
+    return EMAIL_ERROR;
+  }
+  if (!validateEmail(trimmed)) {
+    return EMAIL_ERROR;
+  }
+  return true;
+}
+
+/** Password validation for auth forms (trim/space checks + optional strength). */
+export function validateAuthPassword(value, { required = true, checkStrength = false } = {}) {
+  if (value == null || value === '') {
+    return required ? 'Password is required' : true;
+  }
+  if (typeof value !== 'string') {
+    return 'Password is required';
+  }
+  if (value !== value.trim()) {
+    return 'Password cannot contain leading or trailing spaces';
+  }
+  if (!value.trim()) {
+    return 'Password is required';
+  }
+  if (checkStrength && !validatePassword(value)) {
+    return 'Password must be at least 8 characters and include uppercase, lowercase, and a number';
+  }
+  return true;
+}
+
+export const trimAuthEmail = (value) => (typeof value === 'string' ? value.trim() : value);
+
 export const validatePassword = (password) => {
   // At least 8 characters, one uppercase, one lowercase, one number
   const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;

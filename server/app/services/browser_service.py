@@ -76,35 +76,27 @@ class BrowserService:
         task_type: str = "general",
         title: Optional[str] = None,
         target_url: Optional[str] = None,
+        steps: Optional[list] = None,
+        form_data: Optional[dict] = None,
+        login_config: Optional[dict] = None,
+        submit_form: bool = False,
+        max_pages: int = 2,
     ):
         if task_type not in BROWSER_TASK_TYPES:
             task_type = "general"
 
-        start = time.perf_counter()
-        full_instruction = instruction
-        if target_url and target_url not in instruction:
-            full_instruction = f"{instruction}\n{target_url}"
-
-        automation_type = self._map_task_type(task_type)
-        outcome = execute_browser_automation(full_instruction, task_type=automation_type, max_pages=2)
-
-        knowledge_context = ""
-        try:
-            knowledge_context = RAGService(self.db).retrieve_context(current_user, instruction, top_k=3)
-        except Exception:
-            pass
-
-        ai_summary = self._try_ai_employee_summary(current_user, instruction, outcome)
-        report_text, summary = self._build_report(
-            instruction, task_type, outcome, knowledge_context, ai_summary
+        outcome, report_text, summary, status, execution_time_ms, urls = self._execute_task(
+            current_user,
+            instruction,
+            task_type,
+            target_url=target_url,
+            steps=steps,
+            form_data=form_data,
+            login_config=login_config,
+            submit_form=submit_form,
+            max_pages=max_pages,
         )
 
-        status = "failed" if outcome.get("errors") and not outcome.get("results") else "completed"
-        if outcome.get("errors") and outcome.get("results"):
-            status = "completed"
-
-        execution_time_ms = int((time.perf_counter() - start) * 1000)
-        urls = _extract_urls(full_instruction)
         task = self.repo.create_task(
             current_user.organization_id,
             current_user.id,
@@ -124,6 +116,90 @@ class BrowserService:
             },
         )
         return self._serialize(task)
+
+    def retry_task(self, current_user, task_id: int):
+        task = self.repo.get_task(current_user.organization_id, task_id)
+        if not task:
+            return None
+        self._assert_task_access(current_user, task)
+
+        prior_logs = json.loads(task.logs_json or "[]")
+        retry_count = sum(1 for line in prior_logs if str(line).startswith("[retry"))
+        retry_label = f"[retry {retry_count + 1}]"
+
+        outcome, report_text, summary, status, execution_time_ms, urls = self._execute_task(
+            current_user,
+            task.instruction,
+            task.task_type,
+            target_url=task.target_url,
+            max_pages=2,
+        )
+
+        new_logs = [retry_label + " Retrying browser task"] + outcome.get("logs", [])
+        self.repo.update_task(
+            task,
+            {
+                "status": status,
+                "target_url": task.target_url or (urls[0] if urls else None),
+                "results": outcome.get("results", []),
+                "logs": new_logs,
+                "errors": outcome.get("errors", []),
+                "pages_visited": outcome.get("pages_visited", []),
+                "summary": summary,
+                "report_text": report_text,
+                "execution_time_ms": execution_time_ms,
+            },
+        )
+        return self._serialize(task)
+
+    def _execute_task(
+        self,
+        current_user,
+        instruction: str,
+        task_type: str,
+        *,
+        target_url: Optional[str] = None,
+        steps: Optional[list] = None,
+        form_data: Optional[dict] = None,
+        login_config: Optional[dict] = None,
+        submit_form: bool = False,
+        max_pages: int = 2,
+    ):
+        start = time.perf_counter()
+        full_instruction = instruction
+        if target_url and target_url not in instruction:
+            full_instruction = f"{instruction}\n{target_url}"
+
+        automation_type = self._map_task_type(task_type)
+        outcome = execute_browser_automation(
+            full_instruction,
+            task_type=automation_type,
+            max_pages=max_pages,
+            steps=steps,
+            form_data=form_data,
+            login_config=login_config,
+            submit_form=submit_form,
+            target_url=target_url,
+        )
+
+        knowledge_context = ""
+        try:
+            knowledge_context = RAGService(self.db).retrieve_context(current_user, instruction, top_k=3)
+        except Exception:
+            pass
+
+        ai_summary = self._try_ai_employee_summary(current_user, instruction, outcome)
+        report_text, summary = self._build_report(
+            instruction, task_type, outcome, knowledge_context, ai_summary
+        )
+
+        status = "failed" if outcome.get("errors") and not outcome.get("results") else "completed"
+        if outcome.get("errors") and outcome.get("results"):
+            status = "completed"
+
+        execution_time_ms = int((time.perf_counter() - start) * 1000)
+        urls = _extract_urls(full_instruction)
+        return outcome, report_text, summary, status, execution_time_ms, urls
 
     def _try_ai_employee_summary(self, current_user, instruction: str, outcome: dict) -> str:
         employees = self.ai_employee_repo.list(current_user.organization_id)
@@ -219,6 +295,8 @@ class BrowserService:
             "pricing_monitoring": "pricing_monitoring",
             "market_data": "market_data",
             "form_filling": "form_filling",
+            "login_automation": "login_automation",
+            "multi_step_workflow": "multi_step_workflow",
             "job_search": "job_search",
         }
         return mapping.get(task_type, task_type)

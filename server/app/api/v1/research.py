@@ -1,11 +1,13 @@
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import require_permission, RESEARCH_ACCESS_PERMISSION
 from app.schemas.research import ResearchMetrics, ResearchReportResponse, ResearchRunRequest
+from app.services.export_service import ExportService
 from app.services.research_service import ResearchService
 
 router = APIRouter(prefix="/api/v1/research", tags=["research"])
@@ -59,6 +61,36 @@ def get_report(
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
     return result
+
+
+@router.get("/{report_id}/export")
+def export_report(
+    report_id: int,
+    format: str = Query(default="pdf", alias="format"),
+    current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    if format not in {"pdf", "xlsx"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="format must be pdf or xlsx")
+    try:
+        report = ResearchService(db).get_report(current_user, report_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if not report:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    exporter = ExportService()
+    filename = f"research_{report_id}.{format}"
+    if format == "pdf":
+        content = exporter.research_report_pdf(report)
+        media_type = "application/pdf"
+    else:
+        content = exporter.research_report_xlsx(report)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.delete("/{report_id}")

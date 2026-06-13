@@ -36,3 +36,26 @@ class GroqClient:
             },
             "raw": data,
         }
+
+    def transcribe_audio(
+        self,
+        audio_bytes: bytes,
+        filename: str = "audio.webm",
+        model: str | None = None,
+    ) -> str:
+        if not self.api_key:
+            raise RuntimeError("Groq API key not configured")
+        url = f"{self.base_url.rstrip('/')}/audio/transcriptions"
+        headers = {"Authorization": f"Bearer {self.api_key}"}
+        files = {"file": (filename, audio_bytes)}
+        data = {"model": model or settings.GROQ_STT_MODEL, "response_format": "json"}
+        response = requests.post(
+            url,
+            headers=headers,
+            files=files,
+            data=data,
+            timeout=settings.GROQ_REQUEST_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return (payload.get("text") or "").strip()

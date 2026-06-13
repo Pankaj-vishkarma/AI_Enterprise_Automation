@@ -73,6 +73,26 @@ class MessageResponse(BaseModel):
     message: str
 
 
+class ForgotPasswordResponse(BaseModel):
+    message: str
+    reset_link: str | None = None
+
+
+class ProfileUpdateRequest(BaseModel):
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str | None = Field(default=None, max_length=100)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        return _validate_password_strength(value)
+
+
 class CurrentUserResponse(BaseModel):
     id: int
     first_name: str

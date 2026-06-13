@@ -61,6 +61,25 @@ class BrowserRepository:
         task.is_deleted = True
         self.db.commit()
 
+    def update_task(self, task: BrowserTask, payload: dict) -> BrowserTask:
+        for field in (
+            "title", "instruction", "task_type", "target_url", "status",
+            "summary", "report_text", "execution_time_ms",
+        ):
+            if field in payload:
+                setattr(task, field, payload[field])
+        for json_field, key in (
+            ("results_json", "results"),
+            ("logs_json", "logs"),
+            ("errors_json", "errors"),
+            ("pages_visited_json", "pages_visited"),
+        ):
+            if key in payload:
+                setattr(task, json_field, json.dumps(payload[key]))
+        self.db.commit()
+        self.db.refresh(task)
+        return task
+
     def get_metrics(self, organization_id: int) -> Dict:
         tasks = (
             self.db.query(BrowserTask)

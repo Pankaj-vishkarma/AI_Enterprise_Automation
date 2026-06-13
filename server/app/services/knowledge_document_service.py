@@ -1,3 +1,5 @@
+import os
+
 from app.core.dependencies import KNOWLEDGE_MANAGE_PERMISSION, KNOWLEDGE_VIEW_PERMISSION
 from app.repositories.knowledge_document_chunk_repository import (
     KnowledgeDocumentChunkRepository,
@@ -95,3 +97,39 @@ class KnowledgeDocumentService:
         return self.chunk_repo.list_by_document(
             current_user.organization_id, document_id
         )
+
+    def get_download_info(self, current_user, document_id: int):
+        document = self.get_document(current_user, document_id)
+        if not document:
+            return None
+        if not document.storage_path or not os.path.isfile(document.storage_path):
+            raise ValueError("Document file not found on storage")
+        return {
+            "path": document.storage_path,
+            "file_name": document.file_name or f"document-{document.id}",
+            "mime_type": document.mime_type or "application/octet-stream",
+        }
+
+    def delete_document(self, current_user, document_id: int):
+        if not self._user_has_manage(current_user):
+            raise PermissionError(f"{KNOWLEDGE_MANAGE_PERMISSION} permission required")
+        document = self.get_document(current_user, document_id)
+        if not document:
+            return None
+        self.chunk_repo.delete_by_document(current_user.organization_id, document_id)
+        if document.storage_path and os.path.isfile(document.storage_path):
+            try:
+                os.remove(document.storage_path)
+            except OSError:
+                pass
+        self.document_repo.delete(document_id)
+        return {"id": document_id, "deleted": True}
+
+    def _user_has_manage(self, current_user) -> bool:
+        role_name = current_user.role.name if current_user.role else None
+        if role_name == "SUPER_ADMIN":
+            return True
+        permissions = {
+            p.name for p in getattr(getattr(current_user, "role", None), "permissions", [])
+        }
+        return KNOWLEDGE_MANAGE_PERMISSION in permissions

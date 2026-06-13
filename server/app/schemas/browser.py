@@ -11,6 +11,8 @@ BROWSER_TASK_TYPES = [
     "market_data",
     "form_filling",
     "business_information",
+    "login_automation",
+    "multi_step_workflow",
     "general",
 ]
 
@@ -41,9 +43,19 @@ BROWSER_TEMPLATES: Dict[str, Dict[str, str]] = {
         "task_type": "market_data",
     },
     "form_filling": {
-        "description": "Inspect forms and fields on a web page (read-only discovery).",
-        "example": "Analyze the contact form at https://example.com/contact",
+        "description": "Discover and fill form fields on a public page (optional submit).",
+        "example": "Fill the contact form at https://example.com/contact",
         "task_type": "form_filling",
+    },
+    "login_automation": {
+        "description": "Automate login on a public page using provided credentials and selectors.",
+        "example": "Login at https://example.com/login with username demo@example.com",
+        "task_type": "login_automation",
+    },
+    "multi_step_workflow": {
+        "description": "Run a multi-step browser workflow (navigate, click, fill, wait, extract).",
+        "example": "Run workflow on https://example.com with steps to search and extract results",
+        "task_type": "multi_step_workflow",
     },
     "business_information": {
         "description": "Gather company name, description, and business details.",
@@ -53,11 +65,33 @@ BROWSER_TEMPLATES: Dict[str, Dict[str, str]] = {
 }
 
 
+class BrowserWorkflowStep(BaseModel):
+    action: str = Field(min_length=1, max_length=50)
+    selector: Optional[str] = Field(default=None, max_length=500)
+    value: Optional[str] = Field(default=None, max_length=2000)
+    url: Optional[str] = Field(default=None, max_length=500)
+    wait_ms: Optional[int] = Field(default=None, ge=0, le=30000)
+
+
+class BrowserLoginConfig(BaseModel):
+    username: str = Field(min_length=1, max_length=255)
+    password: str = Field(min_length=1, max_length=255)
+    username_selector: str = Field(default='input[name="username"], input[name="email"], input[type="email"]')
+    password_selector: str = Field(default='input[name="password"], input[type="password"]')
+    submit_selector: str = Field(default='button[type="submit"], input[type="submit"]')
+    login_url: Optional[str] = Field(default=None, max_length=500)
+
+
 class BrowserTaskRunRequest(BaseModel):
     instruction: str = Field(min_length=3, max_length=5000)
     task_type: str = Field(default="general")
     title: Optional[str] = Field(default=None, max_length=255)
     target_url: Optional[str] = Field(default=None, max_length=500)
+    steps: Optional[List[BrowserWorkflowStep]] = None
+    form_data: Optional[Dict[str, str]] = None
+    login: Optional[BrowserLoginConfig] = None
+    submit_form: bool = False
+    max_pages: int = Field(default=2, ge=1, le=10)
 
 
 class BrowserTaskResponse(BaseModel):

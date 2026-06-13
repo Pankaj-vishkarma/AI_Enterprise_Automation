@@ -1,7 +1,7 @@
 import json
 from collections import Counter
 from datetime import datetime, timezone
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from sqlalchemy.orm import Session
 
@@ -155,9 +155,22 @@ class VoiceRepository:
             "created_at": record.created_at,
         }
 
+    def count_interactions_for_sessions(
+        self, organization_id: int, session_ids: List[int]
+    ) -> Dict[int, int]:
+        if not session_ids:
+            return {}
+        records = self.list_interactions(organization_id, limit=5000)
+        counts: Dict[int, int] = {session_id: 0 for session_id in session_ids}
+        for record in records:
+            data = json.loads(record.data_json or "{}")
+            session_id = data.get("session_id")
+            if session_id in counts:
+                counts[session_id] += 1
+        return counts
+
     def count_interactions_for_session(self, organization_id: int, session_id: int) -> int:
-        records = self.list_interactions(organization_id, session_id=session_id, limit=1000)
-        return len(records)
+        return self.count_interactions_for_sessions(organization_id, [session_id]).get(session_id, 0)
 
     def analytics(self, organization_id: int, user_ids: Optional[Set[int]] = None) -> dict:
         sessions = self.list_sessions(organization_id, limit=500)

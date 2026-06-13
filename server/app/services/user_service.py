@@ -31,16 +31,14 @@ class UserService:
 
         return role
 
-    def list_visible_users(self, current_user):
+    def list_visible_users(self, current_user, limit: int | None = None, offset: int = 0):
         role_name = current_user.role.name if current_user.role else None
 
         if role_name == SUPER_ADMIN_ROLE:
-            return self.user_repo.list_all()
-
-        if role_name == ORG_ADMIN_ROLE:
-            return self.user_repo.list_by_organization(current_user.organization_id)
-
-        if role_name == MANAGER_ROLE:
+            users = self.user_repo.list_all()
+        elif role_name == ORG_ADMIN_ROLE:
+            users = self.user_repo.list_by_organization(current_user.organization_id)
+        elif role_name == MANAGER_ROLE:
             employee_role = self._role_by_name(EMPLOYEE_ROLE)
             employees = self.user_repo.list_by_organization_and_roles(
                 current_user.organization_id,
@@ -53,9 +51,13 @@ class UserService:
             ]
             if current_user.id not in {user.id for user in visible}:
                 visible.insert(0, current_user)
-            return visible
+            users = visible
+        else:
+            users = [current_user]
 
-        return [current_user]
+        if limit is not None:
+            return users[offset : offset + limit]
+        return users
 
     def create_user_for_org(
         self,

@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import (
+    require_permission,
+    OMNICHANNEL_VIEW_PERMISSION,
+    OMNICHANNEL_MANAGE_PERMISSION,
+)
 from app.schemas.omnichannel import (
     OmnichannelChannelsResponse,
     OmnichannelConversationCreate,
@@ -19,9 +23,12 @@ from app.services.omnichannel_service import OmnichannelService
 
 router = APIRouter(prefix="/api/v1/omnichannel", tags=["omnichannel"])
 
+require_omnichannel_view = require_permission(OMNICHANNEL_VIEW_PERMISSION)
+require_omnichannel_manage = require_permission(OMNICHANNEL_MANAGE_PERMISSION)
+
 
 @router.get("/channels", response_model=OmnichannelChannelsResponse)
-def list_channels():
+def list_channels(current_user=Depends(require_omnichannel_view)):
     from app.services.omnichannel.provider_registry import OMNICHANNEL_CHANNELS
     return {"channels": OMNICHANNEL_CHANNELS}
 
@@ -30,7 +37,7 @@ def list_channels():
 def list_conversations(
     channel: Optional[str] = Query(default=None),
     status: Optional[str] = Query(default=None),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_view),
     db: Session = Depends(get_db),
 ):
     return OmnichannelService(db).list_conversations(current_user, channel=channel, status=status)
@@ -39,7 +46,7 @@ def list_conversations(
 @router.get("/conversations/{conversation_id}", response_model=OmnichannelConversationResponse)
 def get_conversation(
     conversation_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_view),
     db: Session = Depends(get_db),
 ):
     conv = OmnichannelService(db).get_conversation(current_user, conversation_id)
@@ -51,7 +58,7 @@ def get_conversation(
 @router.post("/conversations", response_model=OmnichannelConversationResponse, status_code=status.HTTP_201_CREATED)
 def create_conversation(
     payload: OmnichannelConversationCreate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     try:
@@ -66,7 +73,7 @@ def create_conversation(
 def update_conversation(
     conversation_id: int,
     payload: OmnichannelConversationUpdate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     conv = OmnichannelService(db).update_conversation(
@@ -81,7 +88,7 @@ def update_conversation(
 def post_message(
     conversation_id: int,
     payload: OmnichannelMessageCreate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     conv = OmnichannelService(db).post_message(
@@ -96,7 +103,7 @@ def post_message(
 def handoff_conversation(
     conversation_id: int,
     payload: OmnichannelHandoffRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     try:
@@ -113,7 +120,7 @@ def handoff_conversation(
 @router.post("/conversations/{conversation_id}/return-to-ai", response_model=OmnichannelConversationResponse)
 def return_to_ai(
     conversation_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     conv = OmnichannelService(db).return_to_ai(current_user, conversation_id)
@@ -125,7 +132,7 @@ def return_to_ai(
 @router.post("/conversations/{conversation_id}/suggest", response_model=OmnichannelConversationResponse)
 def regenerate_suggestion(
     conversation_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     conv = OmnichannelService(db).regenerate_suggestion(current_user, conversation_id)
@@ -137,7 +144,7 @@ def regenerate_suggestion(
 @router.post("/conversations/{conversation_id}/context", response_model=OmnichannelConversationResponse)
 def refresh_context(
     conversation_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     conv = OmnichannelService(db).refresh_context(current_user, conversation_id)
@@ -149,7 +156,7 @@ def refresh_context(
 @router.post("/conversations/{conversation_id}/summary", response_model=OmnichannelSummaryResponse)
 def generate_summary(
     conversation_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_view),
     db: Session = Depends(get_db),
 ):
     result = OmnichannelService(db).generate_summary(current_user, conversation_id)
@@ -161,7 +168,7 @@ def generate_summary(
 @router.post("/conversations/{conversation_id}/support-ticket", response_model=OmnichannelConversationResponse)
 def create_support_ticket(
     conversation_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     result = OmnichannelService(db).create_support_ticket(current_user, conversation_id)
@@ -173,7 +180,7 @@ def create_support_ticket(
 @router.post("/inbound", response_model=OmnichannelConversationResponse)
 def ingest_inbound_message(
     payload: OmnichannelInboundMessage,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_omnichannel_manage),
     db: Session = Depends(get_db),
 ):
     try:

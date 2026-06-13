@@ -40,6 +40,18 @@ class Settings(BaseSettings):
     TELEGRAM_WEBHOOK_SECRET: str | None = None
     OMNICHANNEL_WEBHOOK_ORG_ID: int | None = None
 
+    VOICE_STT_PROVIDER: str = "groq"
+    VOICE_TTS_PROVIDER: str = "gtts"
+    GROQ_STT_MODEL: str = "whisper-large-v3"
+    VOICE_TTS_LANGUAGE: str = "en"
+
+    AUTO_CREATE_TABLES: bool = False
+    START_EMBEDDING_WORKER_IN_API: bool = False
+    LOG_LEVEL: str = "INFO"
+
+    FRONTEND_URL: str = "http://localhost:5173"
+    PASSWORD_RESET_RETURN_LINK: bool = False
+
     class Config:
         env_file = ".env"
 

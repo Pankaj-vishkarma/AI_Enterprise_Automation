@@ -17,6 +17,9 @@ from app.schemas.auth import (
     TokenResponse,
     UserProfileResponse,
     MessageResponse,
+    ForgotPasswordResponse,
+    ProfileUpdateRequest,
+    ChangePasswordRequest,
 )
 
 from app.core.dependencies import (
@@ -160,16 +163,13 @@ def logout(
     return {"message": "Logged out successfully"}
 
 
-@router.post("/forgot-password", response_model=MessageResponse)
+@router.post("/forgot-password", response_model=ForgotPasswordResponse)
 def forgot_password(
     payload: ForgotPasswordRequest,
     db: Session = Depends(get_db),
 ):
     service = AuthService(db)
-    service.request_password_reset(payload.email)
-    return {
-        "message": "If an account exists for that email, a password reset link has been sent.",
-    }
+    return service.request_password_reset(payload.email)
 
 
 @router.post("/reset-password", response_model=MessageResponse)
@@ -199,26 +199,29 @@ def me(
     return service.get_user_profile(current_user)
 
 
-@router.get("/super-admin-test")
-def super_admin_test(
-    current_user=Depends(require_super_admin),
-):
-    return {"message": "SUPER_ADMIN access granted"}
-
-
-@router.get("/org-admin-test")
-def org_admin_test(
-    current_user=Depends(require_org_admin),
-):
-
-    return {"message": "ORG_ADMIN access granted"}
-
-
-@router.get("/debug-role")
-def debug_role(
+@router.patch("/me", response_model=UserProfileResponse)
+def update_me(
+    payload: ProfileUpdateRequest,
     current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
 ):
-    return {
-        "email": current_user.email,
-        "role": current_user.role.name if current_user.role else None,
-    }
+    service = AuthService(db)
+    return service.update_profile(current_user, payload.first_name, payload.last_name)
+
+
+@router.post("/change-password", response_model=MessageResponse)
+def change_password(
+    payload: ChangePasswordRequest,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    service = AuthService(db)
+    success = service.change_password(
+        current_user, payload.current_password, payload.new_password
+    )
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+    return {"message": "Password changed successfully"}

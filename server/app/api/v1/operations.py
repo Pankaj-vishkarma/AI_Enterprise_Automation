@@ -4,31 +4,98 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import ANALYTICS_VIEW_PERMISSION, get_current_active_user, require_permission
+from app.core.dependencies import (
+    AI_EMPLOYEE_MANAGE_PERMISSION,
+    AI_EMPLOYEE_USE_PERMISSION,
+    BROWSER_ACCESS_PERMISSION,
+    COLLABORATION_USE_PERMISSION,
+    OMNICHANNEL_MANAGE_PERMISSION,
+    OMNICHANNEL_VIEW_PERMISSION,
+    RESEARCH_ACCESS_PERMISSION,
+    SUPPORT_MANAGE_PERMISSION,
+    SUPPORT_VIEW_PERMISSION,
+    VOICE_ACCESS_PERMISSION,
+    WORKFLOW_MANAGE_PERMISSION,
+    WORKFLOW_USE_PERMISSION,
+    get_current_active_user,
+    get_user_permissions,
+    SUPER_ADMIN_ROLE,
+)
 from app.schemas.operations import (
-    AnalyticsResponse,
-    AgentTaskRequest,
-    CollaborationRequest,
     OperationalRecordCreate,
     OperationalRecordResponse,
     OperationalRecordUpdate,
-    ReasoningRequest,
 )
-from app.services.operations_service import OperationsService
+from app.services.operations_service import OperationsService, MODULES
 
-router = APIRouter(prefix="/api/v1", tags=["operations"])
+router = APIRouter(prefix="/api/v1/operations", tags=["operations"])
+
+MODULE_VIEW_PERMISSIONS = {
+    "ai-employees": AI_EMPLOYEE_USE_PERMISSION,
+    "collaboration": COLLABORATION_USE_PERMISSION,
+    "workflows": WORKFLOW_USE_PERMISSION,
+    "research": RESEARCH_ACCESS_PERMISSION,
+    "browser-automation": BROWSER_ACCESS_PERMISSION,
+    "voice": VOICE_ACCESS_PERMISSION,
+    "support": SUPPORT_VIEW_PERMISSION,
+    "omnichannel": OMNICHANNEL_VIEW_PERMISSION,
+}
+
+MODULE_MANAGE_PERMISSIONS = {
+    "ai-employees": AI_EMPLOYEE_MANAGE_PERMISSION,
+    "collaboration": COLLABORATION_USE_PERMISSION,
+    "workflows": WORKFLOW_MANAGE_PERMISSION,
+    "research": RESEARCH_ACCESS_PERMISSION,
+    "browser-automation": BROWSER_ACCESS_PERMISSION,
+    "voice": VOICE_ACCESS_PERMISSION,
+    "support": SUPPORT_MANAGE_PERMISSION,
+    "omnichannel": OMNICHANNEL_MANAGE_PERMISSION,
+}
 
 
-@router.get("/operations/{module}", response_model=List[OperationalRecordResponse])
-def list_records(module: str, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def _validate_module(module: str) -> None:
+    if module not in MODULES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unsupported operations module")
+
+
+def _assert_module_permission(current_user, module: str, action: str = "view") -> None:
+    _validate_module(module)
+    role_name = getattr(getattr(current_user, "role", None), "name", None)
+    if role_name == SUPER_ADMIN_ROLE:
+        return
+    permission = (
+        MODULE_MANAGE_PERMISSIONS.get(module)
+        if action == "manage"
+        else MODULE_VIEW_PERMISSIONS.get(module)
+    )
+    if permission not in get_user_permissions(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"{permission} permission required",
+        )
+
+
+@router.get("/{module}", response_model=List[OperationalRecordResponse])
+def list_records(
+    module: str,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    _assert_module_permission(current_user, module, "view")
     try:
         return OperationsService(db).list(current_user, module)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
 
-@router.post("/operations/{module}", response_model=OperationalRecordResponse)
-def create_record(module: str, payload: OperationalRecordCreate, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+@router.post("/{module}", response_model=OperationalRecordResponse)
+def create_record(
+    module: str,
+    payload: OperationalRecordCreate,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    _assert_module_permission(current_user, module, "manage")
     try:
         return OperationsService(db).create(current_user, module, payload)
     except PermissionError as exc:
@@ -37,8 +104,15 @@ def create_record(module: str, payload: OperationalRecordCreate, current_user=De
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
-@router.patch("/operations/{module}/{record_id}", response_model=OperationalRecordResponse)
-def update_record(module: str, record_id: int, payload: OperationalRecordUpdate, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+@router.patch("/{module}/{record_id}", response_model=OperationalRecordResponse)
+def update_record(
+    module: str,
+    record_id: int,
+    payload: OperationalRecordUpdate,
+    current_user=Depends(get_current_active_user),
+    db: Session = Depends(get_db),
+):
+    _assert_module_permission(current_user, module, "manage")
     try:
         result = OperationsService(db).update(current_user, module, record_id, payload)
     except PermissionError as exc:
@@ -48,63 +122,3 @@ def update_record(module: str, record_id: int, payload: OperationalRecordUpdate,
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Record not found")
     return result
-
-
-@router.post("/collaboration/run", response_model=OperationalRecordResponse)
-def run_collaboration_legacy(payload: CollaborationRequest, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
-    """Legacy endpoint — delegates to CollaborationService when team_id is provided."""
-    from app.services.collaboration_service import CollaborationService
-
-    if payload.team_id is not None:
-        try:
-            result = CollaborationService(db).run_collaboration(
-                current_user, payload.team_id, payload.prompt
-            )
-        except PermissionError as exc:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
-        except ValueError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-        if not result:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
-        return {
-            "id": result["id"],
-            "organization_id": result["organization_id"],
-            "created_by_user_id": current_user.id,
-            "module": "collaboration",
-            "record_type": "agent_run",
-            "title": result["task"][:255],
-            "status": result["status"],
-            "data": {
-                "team_id": result["team_id"],
-                "prompt": result["task"],
-                "logs": result["intermediate_outputs"],
-                "final_output": result["final_output"],
-            },
-            "created_at": result.get("created_at"),
-            "updated_at": result.get("created_at"),
-        }
-    return OperationsService(db).run_collaboration(current_user, payload.prompt, payload.team or "")
-
-
-@router.post("/ai-employees/{employee_id}/run")
-def run_ai_employee(employee_id: int, payload: AgentTaskRequest, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
-    try:
-        result = OperationsService(db).run_ai_employee(current_user, employee_id, payload.task)
-    except PermissionError as exc:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
-    if not result:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI employee not found")
-    return result
-
-
-@router.post("/{module}/run", response_model=OperationalRecordResponse)
-def run_reasoning(module: str, payload: ReasoningRequest, current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
-    try:
-        return OperationsService(db).run_reasoning(current_user, module, payload.prompt)
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-
-@router.get("/analytics/overview", response_model=AnalyticsResponse)
-def analytics_overview(current_user=Depends(require_permission(ANALYTICS_VIEW_PERMISSION)), db: Session = Depends(get_db)):
-    return OperationsService(db).analytics(current_user)

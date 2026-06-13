@@ -1,5 +1,8 @@
 from sqlalchemy.orm import Session
 
+import logging
+
+from app.core.config import settings
 from app.core.security import (
     hash_password,
     verify_password,
@@ -17,6 +20,8 @@ from app.repositories.user_session_repository import UserSessionRepository
 from app.services.rbac_service import RbacService
 from app.core.dependencies import get_user_permissions
 from app.utils.organization_name import ORGANIZATION_EXISTS_MESSAGE
+
+logger = logging.getLogger(__name__)
 
 PUBLIC_REGISTRATION_ROLE = "ORG_ADMIN"
 
@@ -172,13 +177,34 @@ class AuthService:
 
         return True
 
-    def request_password_reset(self, email: str) -> bool:
-        """Always returns True to avoid email enumeration."""
+    def request_password_reset(self, email: str) -> dict:
+        """Always returns a generic message to avoid email enumeration."""
+        reset_link = None
         user = self.user_repo.get_by_email(email)
         if user and user.is_active:
             token = create_password_reset_token(user.id)
-            # Token is issued; email delivery is integration-ready (not configured here).
-            _ = token
+            reset_link = f"{settings.FRONTEND_URL.rstrip('/')}/reset-password?token={token}"
+            logger.info("Password reset link generated for %s", email)
+            if settings.PASSWORD_RESET_RETURN_LINK:
+                logger.info("Dev reset link: %s", reset_link)
+        return {
+            "message": "If an account exists for that email, a password reset link has been sent.",
+            "reset_link": reset_link if settings.PASSWORD_RESET_RETURN_LINK else None,
+        }
+
+    def update_profile(self, user, first_name: str, last_name: str | None) -> dict:
+        user.first_name = first_name.strip()
+        user.last_name = last_name.strip() if last_name else None
+        self.user_repo.db.commit()
+        self.user_repo.db.refresh(user)
+        return self.get_user_profile(user)
+
+    def change_password(self, user, current_password: str, new_password: str) -> bool:
+        if not verify_password(current_password, user.password_hash):
+            return False
+        user.password_hash = hash_password(new_password)
+        self.user_repo.db.commit()
+        self.session_repo.delete_by_user_id(user.id)
         return True
 
     def reset_password(self, token: str, new_password: str) -> bool:

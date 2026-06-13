@@ -38,3 +38,22 @@ class OrganizationRepository:
         self.db.refresh(organization)
 
         return organization
+
+    def list_all(self):
+        return (
+            self.db.query(Organization)
+            .order_by(Organization.id.asc())
+            .all()
+        )
+
+    def update(self, organization_id: int, name: str | None = None, status: str | None = None):
+        organization = self.get_by_id(organization_id)
+        if not organization:
+            return None
+        if name is not None:
+            organization.name = name.strip()
+        if status is not None:
+            organization.status = status
+        self.db.commit()
+        self.db.refresh(organization)
+        return organization

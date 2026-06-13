@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import (
+    require_permission,
+    SUPPORT_VIEW_PERMISSION,
+    SUPPORT_MANAGE_PERMISSION,
+)
 from app.schemas.support import (
     SUPPORT_CATEGORIES,
     SupportAssignRequest,
@@ -18,9 +22,12 @@ from app.services.support_service import SupportService
 
 router = APIRouter(prefix="/api/v1/support", tags=["support"])
 
+require_support_view = require_permission(SUPPORT_VIEW_PERMISSION)
+require_support_manage = require_permission(SUPPORT_MANAGE_PERMISSION)
+
 
 @router.get("/categories", response_model=List[str])
-def list_categories():
+def list_categories(current_user=Depends(require_support_view)):
     return SUPPORT_CATEGORIES
 
 
@@ -29,7 +36,7 @@ def list_tickets(
     status: Optional[str] = Query(default=None),
     category: Optional[str] = Query(default=None),
     open_only: bool = Query(default=False),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_view),
     db: Session = Depends(get_db),
 ):
     return SupportService(db).list_tickets(
@@ -40,7 +47,7 @@ def list_tickets(
 @router.get("/tickets/{ticket_id}", response_model=SupportTicketResponse)
 def get_ticket(
     ticket_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_view),
     db: Session = Depends(get_db),
 ):
     ticket = SupportService(db).get_ticket(current_user, ticket_id)
@@ -52,7 +59,7 @@ def get_ticket(
 @router.post("/tickets", response_model=SupportTicketResponse, status_code=status.HTTP_201_CREATED)
 def create_ticket(
     payload: SupportTicketCreate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_view),
     db: Session = Depends(get_db),
 ):
     return SupportService(db).create_ticket(current_user, payload.model_dump())
@@ -62,7 +69,7 @@ def create_ticket(
 def update_ticket(
     ticket_id: int,
     payload: SupportTicketUpdate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_manage),
     db: Session = Depends(get_db),
 ):
     ticket = SupportService(db).update_ticket(
@@ -77,7 +84,7 @@ def update_ticket(
 def assign_ticket(
     ticket_id: int,
     payload: SupportAssignRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_manage),
     db: Session = Depends(get_db),
 ):
     try:
@@ -95,7 +102,7 @@ def assign_ticket(
 def escalate_ticket(
     ticket_id: int,
     payload: SupportEscalateRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_manage),
     db: Session = Depends(get_db),
 ):
     ticket = SupportService(db).escalate_ticket(current_user, ticket_id, payload.reason)
@@ -107,7 +114,7 @@ def escalate_ticket(
 @router.post("/tickets/{ticket_id}/close", response_model=SupportTicketResponse)
 def close_ticket(
     ticket_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_manage),
     db: Session = Depends(get_db),
 ):
     ticket = SupportService(db).close_ticket(current_user, ticket_id)
@@ -119,7 +126,7 @@ def close_ticket(
 @router.post("/tickets/{ticket_id}/reopen", response_model=SupportTicketResponse)
 def reopen_ticket(
     ticket_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_manage),
     db: Session = Depends(get_db),
 ):
     ticket = SupportService(db).reopen_ticket(current_user, ticket_id)
@@ -131,7 +138,7 @@ def reopen_ticket(
 @router.post("/tickets/{ticket_id}/recommend", response_model=SupportTicketResponse)
 def regenerate_recommendation(
     ticket_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_manage),
     db: Session = Depends(get_db),
 ):
     ticket = SupportService(db).regenerate_recommendation(current_user, ticket_id)
@@ -142,7 +149,7 @@ def regenerate_recommendation(
 
 @router.get("/metrics", response_model=SupportMetricsResponse)
 def support_metrics(
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_support_view),
     db: Session = Depends(get_db),
 ):
     return SupportService(db).get_metrics(current_user)

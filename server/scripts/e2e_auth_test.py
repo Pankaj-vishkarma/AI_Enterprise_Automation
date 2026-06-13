@@ -78,20 +78,9 @@ def main():
     a_access = payload["access_token"]
     a_refresh = payload["refresh_token"]
 
-    status, payload = http_json("GET", "/api/v1/auth/debug-role", token=a_access)
-    assert_status("debug-role A", status, 200, payload)
-    assert_true("debug-role A role", payload.get("role") == "ORG_ADMIN", payload)
-
-    status, payload = http_json("GET", "/api/v1/auth/org-admin-test", token=a_access)
-    assert_status("org-admin-test A", status, 200, payload)
-    assert_true(
-        "org-admin-test A message",
-        payload.get("message") == "ORG_ADMIN access granted",
-        payload,
-    )
-
     status, payload = http_json("GET", "/api/v1/auth/me", token=a_access)
     assert_status("me A", status, 200, payload)
+    assert_true("me A role ORG_ADMIN", payload.get("role") == "ORG_ADMIN", payload)
     org_a_id = payload["organization_id"]
 
     status, refresh_payload = http_json(
@@ -161,9 +150,9 @@ def main():
     manager_refresh = login_payload["refresh_token"]
 
     status, payload = http_json(
-        "GET", "/api/v1/auth/org-admin-test", token=manager_access
+        "GET", "/api/v1/organizations", token=manager_access
     )
-    assert_status("manager forbidden org-admin-test", status, 403, payload)
+    assert_status("manager forbidden organizations", status, 403, payload)
 
     status, payload = http_json("GET", "/api/v1/users", token=manager_access)
     assert_status("manager user list", status, 200, payload)
@@ -222,9 +211,9 @@ def main():
     super_access = login_payload["access_token"]
 
     status, payload = http_json(
-        "GET", "/api/v1/auth/super-admin-test", token=super_access
+        "GET", "/api/v1/organizations", token=super_access
     )
-    assert_status("super-admin-test", status, 200, payload)
+    assert_status("super admin organizations list", status, 200, payload)
 
     status, payload = http_json(
         "POST",

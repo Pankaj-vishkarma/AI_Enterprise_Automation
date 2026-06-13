@@ -3,6 +3,7 @@ from collections import Counter
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -52,11 +53,14 @@ def create_document(
 
 @router.get("/documents", response_model=List[KnowledgeDocumentResponse])
 def list_documents(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user=Depends(require_permission(KNOWLEDGE_VIEW_PERMISSION)),
     db: Session = Depends(get_db),
 ):
     service = KnowledgeDocumentService(db)
-    return service.list_documents(current_user)
+    documents = service.list_documents(current_user)
+    return documents[offset : offset + limit]
 
 
 @router.get("/documents/{document_id}", response_model=KnowledgeDocumentResponse)
@@ -124,6 +128,48 @@ def disable_document(
             status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge document not found"
         )
     return document
+
+
+@router.get("/documents/{document_id}/download")
+def download_document(
+    document_id: int,
+    current_user=Depends(require_permission(KNOWLEDGE_VIEW_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    service = KnowledgeDocumentService(db)
+    try:
+        info = service.get_download_info(current_user, document_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    if not info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge document not found"
+        )
+    return FileResponse(
+        path=info["path"],
+        media_type=info["mime_type"],
+        filename=info["file_name"],
+    )
+
+
+@router.delete("/documents/{document_id}")
+def delete_document(
+    document_id: int,
+    current_user=Depends(require_permission(KNOWLEDGE_MANAGE_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    service = KnowledgeDocumentService(db)
+    try:
+        result = service.delete_document(current_user, document_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if not result:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge document not found"
+        )
+    return result
 
 
 @router.post(

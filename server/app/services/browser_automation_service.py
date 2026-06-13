@@ -2,6 +2,7 @@ import ipaddress
 import json
 import re
 import socket
+import time
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -42,91 +43,108 @@ def execute_browser_automation(
     prompt: str,
     task_type: str = "general",
     max_pages: int = 2,
+    *,
+    steps: Optional[List[Dict[str, Any]]] = None,
+    form_data: Optional[Dict[str, str]] = None,
+    login_config: Optional[Dict[str, Any]] = None,
+    submit_form: bool = False,
+    target_url: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Run a Playwright browser automation task.
-    Returns logs, structured results, pages visited, and errors.
+    Supports extraction, form filling, login automation, and multi-step workflows.
     """
     logs: List[str] = []
     errors: List[str] = []
     results: List[Dict[str, Any]] = []
     pages_visited: List[str] = []
 
+    parsed_steps = steps or _parse_workflow_from_instruction(prompt)
     urls = _extract_urls(prompt)
-    if not urls:
-        errors.append("No URL found in task. Include a public http(s) URL to scrape.")
-        return {
-            "logs": logs,
-            "results": results,
-            "pages_visited": pages_visited,
-            "errors": errors,
-            "page_title": None,
-            "extracted_text_preview": None,
-        }
+    if target_url and target_url not in urls:
+        urls.insert(0, target_url)
+    if login_config and login_config.get("login_url"):
+        urls.insert(0, login_config["login_url"])
 
-    url = urls[0]
-    if not _is_url_safe(url):
+    if not urls and not parsed_steps:
+        errors.append("No URL found in task. Include a public http(s) URL to automate.")
+        return _empty_outcome(logs, results, pages_visited, errors)
+
+    url = urls[0] if urls else None
+    if url and not _is_url_safe(url):
         errors.append(f"Blocked URL (private/localhost/unsafe): {url}")
-        return {
-            "logs": logs,
-            "results": results,
-            "pages_visited": pages_visited,
-            "errors": errors,
-            "page_title": None,
-            "extracted_text_preview": None,
-        }
+        return _empty_outcome(logs, results, pages_visited, errors)
 
     try:
         from playwright.sync_api import sync_playwright
     except Exception as exc:
         errors.append(f"Playwright not available: {exc}")
-        return {
-            "logs": logs,
-            "results": results,
-            "pages_visited": pages_visited,
-            "errors": errors,
-            "page_title": None,
-            "extracted_text_preview": None,
-        }
+        return _empty_outcome(logs, results, pages_visited, errors)
 
     page_title = None
     text_preview = None
+    task_type = (task_type or "general").lower().replace(" ", "_")
 
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
             page = browser.new_page()
-            current_url = url
 
-            for page_num in range(max_pages):
-                logs.append(f"[{page_num + 1}] Navigating to {current_url}")
-                page.goto(current_url, wait_until="domcontentloaded", timeout=30000)
-                pages_visited.append(current_url)
-                page_title = page.title()
-                body_text = page.locator("body").inner_text()[:8000]
-                text_preview = body_text[:1500]
+            if parsed_steps:
+                logs.append(f"Running multi-step workflow ({len(parsed_steps)} steps)")
+                step_results = _execute_workflow_steps(page, parsed_steps, logs, errors, pages_visited)
+                results.extend(step_results)
+            elif task_type == "login_automation" and login_config:
+                login_url = login_config.get("login_url") or url
+                if not login_url or not _is_url_safe(login_url):
+                    errors.append("Valid login URL required for login automation")
+                else:
+                    logs.append(f"Login automation at {login_url}")
+                    page.goto(login_url, wait_until="domcontentloaded", timeout=30000)
+                    pages_visited.append(login_url)
+                    login_result = _perform_login(page, login_config, logs, errors)
+                    results.append(login_result)
+                    page_title = page.title()
+                    text_preview = page.locator("body").inner_text()[:1500]
+                    page_results = _extract_by_task_type(page, page.url, "general", text_preview or "")
+                    results.extend(page_results)
+            else:
+                current_url = url
+                for page_num in range(max_pages):
+                    logs.append(f"[{page_num + 1}] Navigating to {current_url}")
+                    page.goto(current_url, wait_until="domcontentloaded", timeout=30000)
+                    pages_visited.append(current_url)
+                    page_title = page.title()
+                    body_text = page.locator("body").inner_text()[:8000]
+                    text_preview = body_text[:1500]
 
-                page_results = _extract_by_task_type(page, current_url, task_type, body_text)
-                results.extend(page_results)
-                logs.append(f"[{page_num + 1}] Extracted {len(page_results)} records from page")
+                    if task_type == "form_filling" and form_data:
+                        fill_result = _fill_form_fields(page, form_data, submit_form, logs, errors)
+                        results.append(fill_result)
+                    elif login_config:
+                        login_result = _perform_login(page, login_config, logs, errors)
+                        results.append(login_result)
 
-                if page_num + 1 >= max_pages:
-                    break
-                next_url = _find_next_page_url(page, current_url)
-                if not next_url or not _is_url_safe(next_url):
-                    break
-                current_url = next_url
+                    page_results = _extract_by_task_type(page, current_url, task_type, body_text)
+                    results.extend(page_results)
+                    logs.append(f"[{page_num + 1}] Extracted {len(page_results)} records from page")
+
+                    if page_num + 1 >= max_pages:
+                        break
+                    next_url = _find_next_page_url(page, current_url)
+                    if not next_url or not _is_url_safe(next_url):
+                        break
+                    current_url = next_url
 
             browser.close()
     except Exception as exc:
         errors.append(str(exc))
         logs.append(f"Error: {exc}")
 
-    # Deduplicate by url/title
     seen = set()
     unique_results = []
     for row in results:
-        key = (row.get("title"), row.get("url") or row.get("location"))
+        key = (row.get("title"), row.get("url") or row.get("location") or row.get("action"))
         if key in seen:
             continue
         seen.add(key)
@@ -140,6 +158,194 @@ def execute_browser_automation(
         "page_title": page_title,
         "extracted_text_preview": text_preview,
     }
+
+
+def _empty_outcome(logs, results, pages_visited, errors):
+    return {
+        "logs": logs,
+        "results": results,
+        "pages_visited": pages_visited,
+        "errors": errors,
+        "page_title": None,
+        "extracted_text_preview": None,
+    }
+
+
+def _parse_workflow_from_instruction(prompt: str) -> List[Dict[str, Any]]:
+    match = re.search(r"\{[\s\S]*\"steps\"[\s\S]*\}", prompt)
+    if not match:
+        return []
+    try:
+        payload = json.loads(match.group(0))
+        steps = payload.get("steps", [])
+        return [s for s in steps if isinstance(s, dict) and s.get("action")]
+    except Exception:
+        return []
+
+
+def _execute_workflow_steps(
+    page,
+    steps: List[Dict[str, Any]],
+    logs: List[str],
+    errors: List[str],
+    pages_visited: List[str],
+) -> List[Dict[str, Any]]:
+    results: List[Dict[str, Any]] = []
+    for index, step in enumerate(steps, start=1):
+        action = (step.get("action") or "").lower()
+        selector = step.get("selector")
+        value = step.get("value")
+        url = step.get("url")
+        wait_ms = step.get("wait_ms") or 0
+        logs.append(f"[step {index}] {action}" + (f" → {selector or url or ''}" if selector or url else ""))
+        try:
+            if action == "goto":
+                if not url or not _is_url_safe(url):
+                    errors.append(f"Step {index}: invalid or blocked URL")
+                    continue
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                pages_visited.append(url)
+                results.append({"id": index, "action": action, "title": f"Navigated to {url}", "url": url})
+            elif action == "click" and selector:
+                page.locator(selector).first.click(timeout=10000)
+                results.append({"id": index, "action": action, "title": f"Clicked {selector}", "selector": selector})
+            elif action == "fill" and selector:
+                page.locator(selector).first.fill(value or "", timeout=10000)
+                results.append({"id": index, "action": action, "title": f"Filled {selector}", "selector": selector})
+            elif action == "fill_form" and value:
+                form_payload = json.loads(value) if isinstance(value, str) else (value or {})
+                if isinstance(form_payload, dict):
+                    fill_result = _fill_form_fields(page, form_payload, step.get("submit", False), logs, errors)
+                    fill_result["id"] = index
+                    results.append(fill_result)
+            elif action == "login" and value:
+                login_payload = json.loads(value) if isinstance(value, str) else (value or {})
+                if isinstance(login_payload, dict):
+                    login_result = _perform_login(page, login_payload, logs, errors)
+                    login_result["id"] = index
+                    results.append(login_result)
+            elif action == "wait":
+                time.sleep(min((wait_ms or 1000) / 1000.0, 10))
+                results.append({"id": index, "action": action, "title": f"Waited {wait_ms or 1000}ms"})
+            elif action == "wait_for" and selector:
+                page.locator(selector).first.wait_for(timeout=wait_ms or 10000)
+                results.append({"id": index, "action": action, "title": f"Waited for {selector}"})
+            elif action == "extract":
+                body_text = page.locator("body").inner_text()[:8000]
+                extracted = _extract_by_task_type(page, page.url, step.get("task_type", "general"), body_text)
+                for row in extracted:
+                    row["workflow_step"] = index
+                results.extend(extracted)
+            elif action == "submit" and selector:
+                page.locator(selector).first.click(timeout=10000)
+                results.append({"id": index, "action": action, "title": f"Submitted via {selector}"})
+            else:
+                errors.append(f"Step {index}: unsupported or incomplete action '{action}'")
+        except Exception as exc:
+            errors.append(f"Step {index} failed: {exc}")
+            logs.append(f"Step {index} error: {exc}")
+    return results
+
+
+def _fill_form_fields(
+    page,
+    form_data: Dict[str, str],
+    submit: bool,
+    logs: List[str],
+    errors: List[str],
+) -> Dict[str, Any]:
+    filled = []
+    for field_name, field_value in form_data.items():
+        selectors = [
+            f'[name="{field_name}"]',
+            f'#{field_name}',
+            f'[id="{field_name}"]',
+            field_name if field_name.startswith(("#", ".", "[")) else None,
+        ]
+        filled_field = False
+        for selector in selectors:
+            if not selector:
+                continue
+            try:
+                locator = page.locator(selector).first
+                if locator.count() > 0:
+                    tag = locator.evaluate("el => el.tagName.toLowerCase()")
+                    if tag == "select":
+                        locator.select_option(label=field_value)
+                    else:
+                        locator.fill(str(field_value))
+                    filled.append({"field": field_name, "selector": selector, "value": field_value})
+                    filled_field = True
+                    break
+            except Exception:
+                continue
+        if not filled_field:
+            errors.append(f"Could not fill field: {field_name}")
+
+    submitted = False
+    if submit and filled:
+        for submit_selector in ['button[type="submit"]', 'input[type="submit"]', 'form button']:
+            try:
+                page.locator(submit_selector).first.click(timeout=5000)
+                submitted = True
+                logs.append(f"Form submitted via {submit_selector}")
+                break
+            except Exception:
+                continue
+        if not submitted:
+            errors.append("Form fill succeeded but submit button not found")
+
+    return {
+        "id": 0,
+        "action": "fill_form",
+        "title": f"Filled {len(filled)} field(s)" + (" and submitted" if submitted else ""),
+        "fields_filled": filled,
+        "submitted": submitted,
+    }
+
+
+def _perform_login(
+    page,
+    login_config: Dict[str, Any],
+    logs: List[str],
+    errors: List[str],
+) -> Dict[str, Any]:
+    username = login_config.get("username", "")
+    password = login_config.get("password", "")
+    username_selector = login_config.get(
+        "username_selector",
+        'input[name="username"], input[name="email"], input[type="email"]',
+    )
+    password_selector = login_config.get(
+        "password_selector",
+        'input[name="password"], input[type="password"]',
+    )
+    submit_selector = login_config.get(
+        "submit_selector",
+        'button[type="submit"], input[type="submit"]',
+    )
+    try:
+        page.locator(username_selector).first.fill(username, timeout=10000)
+        page.locator(password_selector).first.fill(password, timeout=10000)
+        page.locator(submit_selector).first.click(timeout=10000)
+        page.wait_for_load_state("domcontentloaded", timeout=15000)
+        logs.append("Login form submitted")
+        return {
+            "id": 0,
+            "action": "login",
+            "title": "Login automation completed",
+            "url": page.url,
+            "status": "submitted",
+        }
+    except Exception as exc:
+        errors.append(f"Login automation failed: {exc}")
+        return {
+            "id": 0,
+            "action": "login",
+            "title": "Login automation failed",
+            "status": "failed",
+            "error": str(exc),
+        }
 
 
 def _find_next_page_url(page, current_url: str) -> Optional[str]:

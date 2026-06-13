@@ -559,10 +559,12 @@ class VoiceService:
                 for session in self.repo.list_sessions(org_id, user_id=None, limit=limit * 5)
                 if session.user_id in scoped_ids
             ][:limit]
+        session_ids = [session.id for session in sessions]
+        interaction_counts = self.repo.count_interactions_for_sessions(org_id, session_ids)
         return [
             self.repo.serialize_session(
                 session,
-                self.repo.count_interactions_for_session(current_user.organization_id, session.id),
+                interaction_counts.get(session.id, 0),
             )
             for session in sessions
         ]

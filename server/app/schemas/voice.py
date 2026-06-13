@@ -75,3 +75,26 @@ class VoiceAnalyticsResponse(BaseModel):
     most_used_commands: List[Dict[str, Any]]
     most_used_modules: List[Dict[str, Any]]
     average_session_duration_seconds: Optional[float] = None
+
+
+class VoiceCapabilitiesResponse(BaseModel):
+    stt: Dict[str, Any]
+    tts: Dict[str, Any]
+    fallback: Dict[str, str]
+
+
+class VoiceSttResponse(BaseModel):
+    transcript: str
+    provider: str
+    fallback: bool = False
+
+
+class VoiceTtsRequest(BaseModel):
+    text: str = Field(min_length=1)
+
+
+class VoiceSpeechQueryResponse(VoiceQueryResponse):
+    stt_provider: str = "browser"
+    tts_provider: str = "browser"
+    tts_fallback: bool = True
+    audio_base64: Optional[str] = None

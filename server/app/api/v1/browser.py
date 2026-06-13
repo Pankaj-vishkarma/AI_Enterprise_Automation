@@ -37,13 +37,35 @@ def run_task(
     current_user=Depends(require_permission(BROWSER_ACCESS_PERMISSION)),
     db: Session = Depends(get_db),
 ):
+    login_config = payload.login.model_dump() if payload.login else None
+    steps = [step.model_dump() for step in payload.steps] if payload.steps else None
     return BrowserService(db).run_task(
         current_user,
         payload.instruction,
         payload.task_type,
         payload.title,
         payload.target_url,
+        steps=steps,
+        form_data=payload.form_data,
+        login_config=login_config,
+        submit_form=payload.submit_form,
+        max_pages=payload.max_pages,
     )
+
+
+@router.post("/tasks/{task_id}/retry", response_model=BrowserTaskResponse)
+def retry_task(
+    task_id: int,
+    current_user=Depends(require_permission(BROWSER_ACCESS_PERMISSION)),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = BrowserService(db).retry_task(current_user, task_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    if not result:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Task not found")
+    return result
 
 
 @router.get("/tasks/{task_id}", response_model=BrowserTaskResponse)

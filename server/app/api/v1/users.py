@@ -1,6 +1,6 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -41,11 +41,13 @@ def _serialize_user(user):
 
 @router.get("", response_model=List[UserOut])
 def list_users(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user=Depends(get_current_active_user),
     db: Session = Depends(get_db),
 ):
     service = UserService(db)
-    return service.list_visible_users(current_user)
+    return service.list_visible_users(current_user, limit=limit, offset=offset)
 
 
 @router.post("", response_model=UserOut)

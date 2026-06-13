@@ -182,6 +182,17 @@ class AnalyticsService:
         pending_approvals = 0
         step_delays: List[Dict[str, Any]] = []
 
+        instance_ids = [instance.id for instance in instances]
+        steps_by_instance: Dict[int, list] = defaultdict(list)
+        if instance_ids:
+            all_steps = (
+                self.db.query(WorkflowInstanceStep)
+                .filter(WorkflowInstanceStep.instance_id.in_(instance_ids))
+                .all()
+            )
+            for step in all_steps:
+                steps_by_instance[step.instance_id].append(step)
+
         for instance in instances:
             wf_id = instance.workflow_id
             workflow_stats[wf_id]["total"] += 1
@@ -198,11 +209,7 @@ class AnalyticsService:
                     if hours >= 0:
                         completion_times.append(hours)
 
-            steps = (
-                self.db.query(WorkflowInstanceStep)
-                .filter(WorkflowInstanceStep.instance_id == instance.id)
-                .all()
-            )
+            steps = steps_by_instance.get(instance.id, [])
             for step in steps:
                 if step.status == "pending" and instance.status == "in_progress":
                     pending_approvals += 1
@@ -364,9 +371,17 @@ class AnalyticsService:
         team_activity: Counter = Counter()
         user_activity: Counter = Counter()
 
+        employee_ids = {run.employee_id for run in employee_runs}
+        employees_by_id = {
+            employee.id: employee
+            for employee in self.db.query(AIEmployee)
+            .filter(AIEmployee.id.in_(employee_ids))
+            .all()
+        } if employee_ids else {}
+
         for run in employee_runs:
             user_activity[run.user_id] += 1
-            employee = self.db.query(AIEmployee).filter(AIEmployee.id == run.employee_id).first()
+            employee = employees_by_id.get(run.employee_id)
             if employee and employee.department_id:
                 dept_activity[employee.department_id] += 1
 

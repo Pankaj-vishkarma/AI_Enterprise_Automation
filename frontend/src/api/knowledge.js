@@ -17,7 +17,10 @@ export const knowledgeAPI = {
   },
 
   deleteDocument: (id) =>
-    client.patch(`/api/v1/knowledge/documents/${id}/disable`),
+    client.delete(`/api/v1/knowledge/documents/${id}`),
+
+  downloadDocument: (id) =>
+    client.get(`/api/v1/knowledge/documents/${id}/download`, { responseType: 'blob' }),
 
   getDocumentChunks: (id, params) =>
     client.get(`/api/v1/knowledge/documents/${id}/chunks`, { params }),

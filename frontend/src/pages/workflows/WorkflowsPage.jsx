@@ -8,7 +8,7 @@ import { departmentsAPI } from '../../api/departments';
 import { teamsAPI } from '../../api/teams';
 import { aiEmployeesAPI } from '../../api/aiEmployees';
 import {
-  Layers, Plus, Play, BarChart3, History, X, Loader, Trash2, Power, Edit,
+  Layers, Plus, Play, BarChart3, History, X, Loader, Trash2, Power, Edit, Bell,
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect, appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading, appModalOverlay, appModal, appLabel, appTabActive, appTabInactive, appBadgeActive, appBadgeInactive, appBadgeWarning } from '../../styles/appStyles';
 import { useRbac } from '../../hooks/useRbac';
@@ -50,6 +50,11 @@ export default function WorkflowsPage() {
     queryKey: ['workflow-templates'],
     queryFn: () => workflowsAPI.getTemplates(),
   });
+  const { data: notificationsRes, refetch: refetchNotifications } = useQuery({
+    queryKey: ['workflow-notifications'],
+    queryFn: () => workflowsAPI.listNotifications(false),
+    enabled: activeTab === 'notifications' && canUseWorkflows,
+  });
   const { data: usersRes } = useQuery({ queryKey: ['users'], queryFn: () => usersAPI.list() });
   const { data: deptRes } = useQuery({ queryKey: ['departments'], queryFn: () => departmentsAPI.list() });
   const { data: teamsRes } = useQuery({ queryKey: ['teams'], queryFn: () => teamsAPI.list() });
@@ -59,6 +64,7 @@ export default function WorkflowsPage() {
   const instances = instancesRes?.data || [];
   const metrics = metricsRes?.data || {};
   const templates = templatesRes?.data || {};
+  const notifications = notificationsRes?.data || [];
   const users = usersRes?.data || [];
   const departments = deptRes?.data || [];
   const teams = teamsRes?.data || [];
@@ -163,6 +169,7 @@ export default function WorkflowsPage() {
 
   const tabs = [
     { id: 'instances', label: 'Active & History', icon: History },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'definitions', label: 'Workflow Definitions', icon: Layers },
     { id: 'templates', label: 'Templates', icon: Plus },
     { id: 'metrics', label: 'Metrics', icon: BarChart3 },
@@ -242,6 +249,48 @@ export default function WorkflowsPage() {
                     <span className="text-xs font-medium text-[#1A1A14]">{inst.progress_percent}%</span>
                   </div>
                 </Link>
+              ))
+            )}
+          </div>
+        )}
+
+        {activeTab === 'notifications' && (
+          <div className="space-y-3">
+            {notifications.length === 0 ? (
+              <div className={appEmpty}>No workflow notifications yet.</div>
+            ) : (
+              notifications.map((note) => (
+                <div key={note.id} className={`${appGlassCard} flex items-start justify-between gap-4`}>
+                  <div>
+                    <p className="font-semibold text-[#1A1A14]">{note.title}</p>
+                    <p className="text-sm text-[#6A6A60] mt-1">{note.body}</p>
+                    {note.link_entity_type === 'workflow_instance' && note.link_entity_id && (
+                      <Link
+                        to={`/workflows/instances/${note.link_entity_id}`}
+                        className="text-xs text-[#1A1A14] font-semibold mt-2 inline-block hover:underline"
+                      >
+                        View instance →
+                      </Link>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={note.is_read ? appBadgeInactive : appBadgeWarning}>
+                      {note.is_read ? 'Read' : 'Unread'}
+                    </span>
+                    {!note.is_read && (
+                      <button
+                        type="button"
+                        className={appBtnGhost}
+                        onClick={async () => {
+                          await workflowsAPI.markNotificationRead(note.id);
+                          refetchNotifications();
+                        }}
+                      >
+                        Mark read
+                      </button>
+                    )}
+                  </div>
+                </div>
               ))
             )}
           </div>

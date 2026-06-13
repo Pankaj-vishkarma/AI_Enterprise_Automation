@@ -38,6 +38,7 @@ export default function ResetPasswordPage() {
     setIsLoading(true);
     try {
       await authAPI.resetPassword(token, data.password);
+      toast.success('Password reset successfully. Please sign in.');
       navigate('/login', { state: { message: 'Password reset successfully. Please sign in.' } });
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to reset password. Please try again.'));

@@ -3,7 +3,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { analyticsAPI } from '../../api/analytics';
 import {
   BarChart3, Download, Sparkles, BookOpen, Bot, Layers, LifeBuoy, AlertCircle,
-  Mic, MessageCircle, Search, Globe, Building2, Users,
+  Mic, MessageCircle, Search, Globe, Building2, Users, GitMerge,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
@@ -19,6 +19,7 @@ const CHART_COLORS = ['#1A1A14', '#4B4B42', '#6A6A60', '#E8C547', '#8B7355', '#C
 const TABS = [
   { id: 'knowledge', label: 'Knowledge', icon: BookOpen },
   { id: 'employees', label: 'AI Employees', icon: Bot },
+  { id: 'collaboration', label: 'Collaboration', icon: GitMerge },
   { id: 'workflows', label: 'Workflows', icon: Layers },
   { id: 'support', label: 'Support', icon: LifeBuoy },
   { id: 'research', label: 'Research', icon: Search },
@@ -109,9 +110,28 @@ export default function AnalyticsPage() {
     }
   };
 
+  const handleBinaryExport = async (reportType, format) => {
+    try {
+      const params = { format };
+      if (startDate) params.start_date = new Date(startDate).toISOString();
+      if (endDate) params.end_date = new Date(endDate).toISOString();
+      const { data } = await analyticsAPI.exportReport(reportType, params);
+      const element = document.createElement('a');
+      const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+      element.href = URL.createObjectURL(data);
+      element.download = `${reportType}_report.${ext}`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const s = dashboard?.summary;
   const k = dashboard?.knowledge;
   const e = dashboard?.employees;
+  const c = dashboard?.collaboration;
   const w = dashboard?.workflows;
   const sup = dashboard?.support;
   const r = dashboard?.research;
@@ -150,6 +170,12 @@ export default function AnalyticsPage() {
             </button>
             <button type="button" onClick={() => handleExport('business')} className={`${appBtnPrimary} w-full md:w-auto`}>
               <Download size={14} /> Business Report
+            </button>
+            <button type="button" onClick={() => handleBinaryExport('executive', 'pdf')} className={`${appBtnGhost} w-full md:w-auto`}>
+              PDF Export
+            </button>
+            <button type="button" onClick={() => handleBinaryExport('executive', 'xlsx')} className={`${appBtnGhost} w-full md:w-auto`}>
+              Excel Export
             </button>
           </div>
         </div>
@@ -270,6 +296,32 @@ export default function AnalyticsPage() {
                       <Sparkles size={14} className="flex-shrink-0 mt-0.5" />
                       <span>Top tools: {(e?.tool_usage || []).slice(0, 3).map((t) => t.tool).join(', ') || 'None yet'}</span>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'collaboration' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Collaboration Runs</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{c?.total_runs ?? 0}</p>
+                        <p className="text-xs text-[#6A6A60]">Total Runs</p>
+                      </div>
+                      <div className="p-4 bg-[#1A1A14]/[0.03] rounded-xl border text-center">
+                        <p className="text-2xl font-bold">{c?.success_rate ?? 0}%</p>
+                        <p className="text-xs text-[#6A6A60]">Success Rate</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Used Teams</h3>
+                    <BarList items={c?.most_used_teams || []} labelKey="team" valueKey="count" />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <h3 className="text-sm font-bold text-[#1A1A14]">Most Used Agents</h3>
+                    <BarList items={c?.most_used_agents || []} labelKey="agent" valueKey="count" />
                   </div>
                 </div>
               )}

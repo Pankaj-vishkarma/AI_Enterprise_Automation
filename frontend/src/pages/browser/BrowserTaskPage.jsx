@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { browserAPI } from '../../api/browser';
-import { ArrowLeft, Download, Loader, Terminal, Trash2, Table } from 'lucide-react';
+import { ArrowLeft, Download, Loader, Terminal, Trash2, Table, RefreshCw } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appGlassCard, appBtnGhost, appBtnIconDanger, appTableWrap, appTableHead, appTh, appTr, appTd, appEmpty, appBadgeInfo } from '../../styles/appStyles';
 
 export default function BrowserTaskPage() {
@@ -21,6 +21,14 @@ export default function BrowserTaskPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['browser-tasks'] });
       window.location.href = '/browser-automation';
+    },
+  });
+
+  const retryMutation = useMutation({
+    mutationFn: () => browserAPI.retry(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['browser-task', id] });
+      queryClient.invalidateQueries({ queryKey: ['browser-tasks'] });
     },
   });
 
@@ -78,6 +86,13 @@ export default function BrowserTaskPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={() => retryMutation.mutate()}
+              disabled={retryMutation.isPending}
+              className={`${appBtnGhost} !text-xs !py-2`}
+            >
+              <RefreshCw size={14} className={retryMutation.isPending ? 'animate-spin' : ''} /> Retry
+            </button>
             <button onClick={handleDownload} className={`${appBtnGhost} !text-xs !py-2`}>
               <Download size={14} /> Export CSV
             </button>

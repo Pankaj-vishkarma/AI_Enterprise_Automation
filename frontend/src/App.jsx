@@ -23,10 +23,14 @@ import TeamsPage from './pages/organization/TeamsPage';
 import RolesPage from './pages/organization/RolesPage';
 import PermissionsPage from './pages/organization/PermissionsPage';
 import OrganizationManagementPage from './pages/organization/OrganizationManagementPage';
+import OrganizationsPage from './pages/organization/OrganizationsPage';
 
 // Knowledge Platform
 import DocumentsPage from './pages/knowledge/DocumentsPage';
 import AskAIPage from './pages/knowledge/AskAIPage';
+import KnowledgeSearchPage from './pages/knowledge/KnowledgeSearchPage';
+import KnowledgeHistoryPage from './pages/knowledge/KnowledgeHistoryPage';
+import KnowledgeStatisticsPage from './pages/knowledge/KnowledgeStatisticsPage';
 
 // Conversations
 import ConversationsPage from './pages/conversations/ConversationsPage';
@@ -116,6 +120,7 @@ function AppRoutes() {
       <Route path="/profile" element={suspense(ProfilePage)} />
 
       <Route path="/organization-management" element={suspense(OrganizationManagementPage)} />
+      <Route path="/organizations" element={suspense(OrganizationsPage)} />
       <Route path="/users" element={suspense(UsersPage)} />
       <Route path="/departments" element={suspense(DepartmentsPage)} />
       <Route path="/teams" element={suspense(TeamsPage)} />
@@ -125,6 +130,9 @@ function AppRoutes() {
       <Route path="/knowledge" element={suspense(DocumentsPage)} />
       <Route path="/knowledge/documents" element={suspense(DocumentsPage)} />
       <Route path="/knowledge/ask-ai" element={suspense(AskAIPage)} />
+      <Route path="/knowledge/search" element={suspense(KnowledgeSearchPage)} />
+      <Route path="/knowledge/history" element={suspense(KnowledgeHistoryPage)} />
+      <Route path="/knowledge/statistics" element={suspense(KnowledgeStatisticsPage)} />
 
       <Route path="/conversations" element={suspense(ConversationsPage)} />
 

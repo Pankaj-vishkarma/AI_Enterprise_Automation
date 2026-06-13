@@ -4,6 +4,8 @@ import MainLayout from '../../components/layout/MainLayout';
 import { departmentsAPI } from '../../api/departments';
 import { Plus, Edit, Search, Power } from 'lucide-react';
 import { useRbac } from '../../hooks/useRbac';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { PERMISSIONS } from '../../utils/rbac';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
@@ -12,6 +14,7 @@ const emptyForm = { id: null, name: '', description: '' };
 export default function DepartmentsPage({ isSubSection = false }) {
   const { hasPermission } = useRbac();
   const canManageDepartments = hasPermission(PERMISSIONS.MANAGE_DEPARTMENTS);
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -19,25 +22,40 @@ export default function DepartmentsPage({ isSubSection = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
 
-  const { data: deptData, isLoading } = useQuery({ queryKey: ['departments'], queryFn: () => departmentsAPI.list() });
+  const { data: deptData, isLoading, error } = useQuery({
+    queryKey: ['departments', page],
+    queryFn: () => departmentsAPI.list({ limit: 10, offset: (page - 1) * 10 }),
+  });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['departments'] });
   const saveMutation = useMutation({
     mutationFn: () => form.id
       ? departmentsAPI.update(form.id, { name: form.name, description: form.description || null })
       : departmentsAPI.create({ name: form.name, description: form.description || null }),
-    onSuccess: () => { invalidate(); setIsOpen(false); setForm(emptyForm); setErrorText(''); },
-    onError: (err) => setErrorText(err.response?.data?.detail || 'Unable to save department'),
+    onSuccess: () => {
+      invalidate();
+      setIsOpen(false);
+      setForm(emptyForm);
+      setErrorText('');
+      toast.success(form.id ? 'Department updated successfully.' : 'Department created successfully.');
+    },
+    onError: (err) => {
+      const message = getApiErrorMessage(err, 'Unable to save department');
+      setErrorText(message);
+      toast.error(message);
+    },
   });
   const statusMutation = useMutation({
     mutationFn: ({ id, active }) => active ? departmentsAPI.enable(id) : departmentsAPI.disable(id),
-    onSuccess: invalidate,
+    onSuccess: (_, { active }) => {
+      invalidate();
+      toast.success(active ? 'Department enabled successfully.' : 'Department disabled successfully.');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Unable to update department status.')),
   });
 
   const deptList = deptData?.data || [];
-  const filteredDepts = deptList.filter((d) => `${d.name} ${d.description || ''}`.toLowerCase().includes(searchTerm.toLowerCase()));
-  const total = filteredDepts.length;
-  const totalPages = Math.ceil(total / 10) || 1;
-  const departments = filteredDepts.slice((page - 1) * 10, page * 10);
+  const departments = deptList.filter((d) => `${d.name} ${d.description || ''}`.toLowerCase().includes(searchTerm.toLowerCase()));
+  const hasNextPage = deptList.length === 10;
 
   const openForm = (dept = emptyForm) => {
     setForm({ id: dept.id || null, name: dept.name || '', description: dept.description || '' });
@@ -111,10 +129,10 @@ export default function DepartmentsPage({ isSubSection = false }) {
               </table>
             </div>
             <div className="px-4 sm:px-6 py-4 border-t border-[#1A1A14]/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-sm text-[#6A6A60]">Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total}</span>
+              <span className="text-sm text-[#6A6A60]">Page {page}</span>
               <div className="flex gap-2">
                 <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={orgPagination}>Previous</button>
-                <button type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
+                <button type="button" disabled={!hasNextPage} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
               </div>
             </div>
           </>

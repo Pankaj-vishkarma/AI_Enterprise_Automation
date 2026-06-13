@@ -16,7 +16,7 @@ export default function RoleRoute({ children, roles, fallbackPath }) {
   const role = user?.role;
   const allowed = roles
     ? roles.includes(role) || role === 'SUPER_ADMIN'
-    : canAccessRoute(location.pathname, role);
+    : canAccessRoute(location.pathname, user);
 
   if (!allowed) {
     if (fallbackPath) {

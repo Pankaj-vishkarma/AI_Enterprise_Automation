@@ -47,7 +47,35 @@ export default function VoicePage() {
   const [meetingNotes, setMeetingNotes] = useState('');
   const [meetingTitle, setMeetingTitle] = useState('');
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const mediaStreamRef = useRef(null);
   const lastTranscriptRef = useRef('');
+  const [capabilities, setCapabilities] = useState(null);
+
+  useEffect(() => {
+    voiceAPI.capabilities()
+      .then(({ data }) => setCapabilities(data))
+      .catch(() => setCapabilities(null));
+  }, []);
+
+  const speakAnswer = useCallback(async (answer) => {
+    if (isMuted || !answer) return;
+    if (capabilities?.tts?.available) {
+      try {
+        const { data } = await voiceAPI.tts(answer);
+        const url = URL.createObjectURL(data);
+        const audio = new Audio(url);
+        await audio.play();
+        return;
+      } catch {
+        /* browser fallback below */
+      }
+    }
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(answer));
+    }
+  }, [isMuted, capabilities]);
 
   const { data: employeesRes } = useQuery({
     queryKey: ['ai-employees-voice'],
@@ -104,9 +132,8 @@ export default function VoicePage() {
           assistant: data.assistant_used,
         },
       ]);
-      if (!isMuted && window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(new SpeechSynthesisUtterance(answer));
+      if (!isMuted) {
+        await speakAnswer(answer);
       }
       refetchHistory();
       refetchAnalytics();
@@ -123,7 +150,34 @@ export default function VoicePage() {
         lastTranscriptRef.current = '';
       }, 1500);
     }
-  }, [sessionId, selectedEmployeeId, assistantRole, isMuted, refetchHistory, refetchAnalytics]);
+  }, [sessionId, selectedEmployeeId, assistantRole, isMuted, refetchHistory, refetchAnalytics, speakAnswer]);
+
+  const stopMediaCapture = () => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+  };
+
+  const startServerStt = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaStreamRef.current = stream;
+    const recorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = recorder;
+    recorder.ondataavailable = async (event) => {
+      if (!event.data || event.data.size < 500) return;
+      try {
+        const file = new File([event.data], 'voice.webm', { type: event.data.type || 'audio/webm' });
+        const { data } = await voiceAPI.stt(file);
+        if (data?.transcript) {
+          submitVoiceQuery(data.transcript);
+        }
+      } catch {
+        /* ignore chunk errors */
+      }
+    };
+    recorder.start(4000);
+  };
 
   const toggleSession = async () => {
     if (isActive) {
@@ -131,6 +185,7 @@ export default function VoicePage() {
       setStatus('Offline');
       recognitionRef.current?.stop();
       recognitionRef.current = null;
+      stopMediaCapture();
       if (sessionId) {
         try {
           await voiceAPI.closeSession(sessionId);
@@ -162,11 +217,19 @@ export default function VoicePage() {
           },
         ]);
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (capabilities?.stt?.available && navigator.mediaDevices?.getUserMedia) {
+          startServerStt().catch(() => {
+            setErrorText('Server speech capture unavailable. Falling back to browser speech.');
+          });
+        }
         if (!SpeechRecognition) {
-          setErrorText('Speech recognition is not supported in this browser. Use suggested commands or Chrome/Edge.');
+          if (!capabilities?.stt?.available) {
+            setErrorText('Speech recognition is not supported in this browser. Use suggested commands or Chrome/Edge.');
+          }
           setStatus('Listening');
           return;
         }
+        if (!capabilities?.stt?.available) {
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
         recognition.interimResults = false;
@@ -181,12 +244,14 @@ export default function VoicePage() {
         };
         recognition.start();
         recognitionRef.current = recognition;
+        }
       }, 800);
     }
   };
 
   useEffect(() => () => {
     recognitionRef.current?.stop();
+    stopMediaCapture();
     window.speechSynthesis?.cancel();
   }, []);
 

@@ -33,4 +33,13 @@ export const authAPI = {
 
   getProfile: () =>
     client.get('/api/v1/auth/me'),
+
+  updateProfile: (data) =>
+    client.patch('/api/v1/auth/me', data),
+
+  changePassword: (currentPassword, newPassword) =>
+    client.post('/api/v1/auth/change-password', {
+      current_password: currentPassword,
+      new_password: newPassword,
+    }),
 };

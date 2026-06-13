@@ -12,6 +12,7 @@ import {
   MessageCircle,
   BarChart3,
   Network,
+  Building2,
 } from 'lucide-react';
 
 export const ROLES = {
@@ -57,27 +58,35 @@ export const PERMISSIONS = {
 const ROUTE_RULES = [
   { pattern: /^\/dashboard$/, roles: ALL_ROLES },
   { pattern: /^\/profile$/, roles: ALL_ROLES },
+  { pattern: /^\/organizations$/, roles: [ROLES.SUPER_ADMIN] },
   { pattern: /^\/organization-management$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN] },
   { pattern: /^\/users$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN] },
-  { pattern: /^\/departments$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN] },
-  { pattern: /^\/teams$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.MANAGER] },
-  { pattern: /^\/roles$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN] },
-  { pattern: /^\/permissions$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN] },
-  { pattern: /^\/knowledge(\/.*)?$/, roles: ALL_ROLES },
-  { pattern: /^\/employees(\/.*)?$/, roles: ALL_ROLES },
-  { pattern: /^\/collaboration$/, roles: ELEVATED_ROLES },
-  { pattern: /^\/workflows(\/.*)?$/, roles: ELEVATED_ROLES },
-  { pattern: /^\/research(\/.*)?$/, roles: ELEVATED_ROLES },
-  { pattern: /^\/browser-automation(\/.*)?$/, roles: ELEVATED_ROLES },
-  { pattern: /^\/voice-ai$/, roles: ALL_ROLES },
-  { pattern: /^\/support$/, roles: ALL_ROLES },
-  { pattern: /^\/omnichannel$/, roles: ALL_ROLES },
-  { pattern: /^\/analytics$/, roles: ELEVATED_ROLES },
-  { pattern: /^\/conversations$/, roles: ELEVATED_ROLES },
+  { pattern: /^\/departments$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN], permissions: [PERMISSIONS.MANAGE_DEPARTMENTS] },
+  { pattern: /^\/teams$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.MANAGER], permissions: [PERMISSIONS.VIEW_TEAMS] },
+  { pattern: /^\/roles$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN], permissions: [PERMISSIONS.VIEW_ROLES] },
+  { pattern: /^\/permissions$/, roles: [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN], permissions: [PERMISSIONS.VIEW_PERMISSIONS] },
+  { pattern: /^\/knowledge\/ask-ai$/, roles: ALL_ROLES, permissions: [PERMISSIONS.KNOWLEDGE_ASK] },
+  { pattern: /^\/knowledge(\/.*)?$/, roles: ALL_ROLES, permissions: [PERMISSIONS.KNOWLEDGE_VIEW] },
+  { pattern: /^\/employees(\/.*)?$/, roles: ALL_ROLES, permissions: [PERMISSIONS.AI_EMPLOYEE_USE] },
+  { pattern: /^\/collaboration$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.COLLABORATION_USE] },
+  { pattern: /^\/workflows(\/.*)?$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.WORKFLOW_USE] },
+  { pattern: /^\/research(\/.*)?$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.RESEARCH_ACCESS] },
+  { pattern: /^\/browser-automation(\/.*)?$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.BROWSER_ACCESS] },
+  { pattern: /^\/voice-ai$/, roles: ALL_ROLES, permissions: [PERMISSIONS.VOICE_ACCESS] },
+  { pattern: /^\/support$/, roles: ALL_ROLES, permissions: [PERMISSIONS.SUPPORT_VIEW] },
+  { pattern: /^\/omnichannel$/, roles: ALL_ROLES, permissions: [PERMISSIONS.OMNICHANNEL_VIEW] },
+  { pattern: /^\/analytics$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.ANALYTICS_VIEW] },
+  { pattern: /^\/conversations$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.KNOWLEDGE_VIEW] },
 ];
 
 export const SIDEBAR_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: ALL_ROLES },
+  {
+    path: '/organizations',
+    label: 'Organizations',
+    icon: Building2,
+    roles: [ROLES.SUPER_ADMIN],
+  },
   {
     path: '/organization-management',
     label: 'Organization Management',
@@ -91,6 +100,7 @@ export const SIDEBAR_ITEMS = [
     roles: [ROLES.MANAGER],
   },
   { path: '/knowledge', label: 'Knowledge', icon: BookOpen, roles: ALL_ROLES },
+  { path: '/knowledge/ask-ai', label: 'Ask AI', icon: MessageCircle, roles: ALL_ROLES },
   { path: '/employees', label: 'AI Employees', icon: Bot, roles: ALL_ROLES },
   {
     path: '/collaboration',
@@ -144,12 +154,18 @@ export function hasAnyPermission(user, permissions = []) {
   return permissions.some((permission) => hasPermission(user, permission));
 }
 
-export function canAccessRoute(pathname, role) {
+export function canAccessRoute(pathname, userOrRole) {
+  const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
   if (!role) return false;
   if (role === ROLES.SUPER_ADMIN) return true;
   const rule = ROUTE_RULES.find((entry) => entry.pattern.test(pathname));
   if (!rule) return true;
-  return rule.roles.includes(role);
+  if (!rule.roles.includes(role)) return false;
+  if (rule.permissions?.length) {
+    const user = typeof userOrRole === 'object' ? userOrRole : null;
+    if (!user || !hasAnyPermission(user, rule.permissions)) return false;
+  }
+  return true;
 }
 
 export function getSidebarItems(role) {

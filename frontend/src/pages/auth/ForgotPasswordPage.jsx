@@ -12,6 +12,8 @@ import '../landing/landing.css';
 
 export default function ForgotPasswordPage() {
   const toast = useToast();
+  const [submitted, setSubmitted] = useState(false);
+  const [resetLink, setResetLink] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: { email: '' },
@@ -24,9 +26,14 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (data) => {
     setIsLoading(true);
+    setResetLink(null);
     try {
       const { data: res } = await authAPI.forgotPassword(data.email);
+      setSubmitted(true);
       toast.success(res?.message || 'If an account exists, a reset link has been sent.');
+      if (res?.reset_link) {
+        setResetLink(res.reset_link);
+      }
     } catch (err) {
       toast.error(getApiErrorMessage(err, 'Failed to send reset link. Please try again.'));
     } finally {
@@ -79,6 +86,19 @@ export default function ForgotPasswordPage() {
                 {!isLoading && <ArrowRight className="h-4 w-4" />}
               </button>
             </form>
+
+            {submitted && (
+              <div className="mt-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+                Check your email for reset instructions. If you do not receive an email, verify the address and try again.
+              </div>
+            )}
+
+            {resetLink && (
+              <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm break-all">
+                <p className="font-medium mb-1">Development reset link</p>
+                <a href={resetLink} className="underline">{resetLink}</a>
+              </div>
+            )}
 
             <p className="mt-6 text-center text-sm text-[var(--muted-foreground)]">
               Remember your password?{' '}

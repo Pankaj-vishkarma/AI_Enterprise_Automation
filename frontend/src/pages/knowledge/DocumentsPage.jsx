@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
+import KnowledgeNav from '../../components/knowledge/KnowledgeNav';
 import { knowledgeAPI } from '../../api/knowledge';
-import { Search, Upload, Trash2, X, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, Upload, Trash2, X, FileText, AlertCircle, RefreshCw, Download } from 'lucide-react';
 import { useRbac } from '../../hooks/useRbac';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { PERMISSIONS } from '../../utils/rbac';
 import {
   appPageShell, appToolbarRow, appSearchWrap, appGrid, appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnGhost, appBtnIconDanger,
@@ -26,6 +29,7 @@ const SUPPORTED_TYPES = [
 export default function DocumentsPage() {
   const { hasPermission } = useRbac();
   const canManageKnowledge = hasPermission(PERMISSIONS.KNOWLEDGE_MANAGE);
+  const toast = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -39,20 +43,17 @@ export default function DocumentsPage() {
   const [isUploading, setIsUploading] = useState(false);
 
   // Query documents list
-  const { data: docsData, isLoading } = useQuery({
-    queryKey: ['documents'],
-    queryFn: () => knowledgeAPI.listDocuments(),
+  const { data: docsData, isLoading, error } = useQuery({
+    queryKey: ['documents', page],
+    queryFn: () => knowledgeAPI.listDocuments({ limit: 10, offset: (page - 1) * 10 }),
   });
 
   const docsList = docsData?.data || [];
-  const filteredDocs = docsList.filter(doc => 
+  const documents = docsList.filter(doc =>
     doc.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (doc.file_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const total = filteredDocs.length;
-  const totalPages = Math.ceil(total / 10) || 1;
-  const documents = filteredDocs.slice((page - 1) * 10, page * 10);
+  const hasNextPage = docsList.length === 10;
 
   // Upload mutation
   const uploadMutation = useMutation({
@@ -64,9 +65,12 @@ export default function DocumentsPage() {
       setUploadType(SUPPORTED_TYPES[0]);
       setSelectedFile(null);
       setUploadError('');
+      toast.success('Document uploaded successfully.');
     },
     onError: (err) => {
-      setUploadError(err.response?.data?.detail || 'Failed to upload document. Please try again.');
+      const message = getApiErrorMessage(err, 'Failed to upload document. Please try again.');
+      setUploadError(message);
+      toast.error(message);
     }
   });
 
@@ -75,10 +79,9 @@ export default function DocumentsPage() {
     mutationFn: (id) => knowledgeAPI.deleteDocument(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['documents'] });
+      toast.success('Document deleted successfully.');
     },
-    onError: (err) => {
-      alert(err.response?.data?.detail || 'Failed to delete document.');
-    }
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Failed to delete document.')),
   });
 
   const retryMutation = useMutation({
@@ -126,8 +129,23 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this document?')) {
+    if (window.confirm('Are you sure you want to permanently delete this document?')) {
       disableMutation.mutate(id);
+    }
+  };
+
+  const handleDownload = async (doc) => {
+    try {
+      const { data, headers } = await knowledgeAPI.downloadDocument(doc.id);
+      const blob = new Blob([data], { type: headers['content-type'] || 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = doc.file_name || `document-${doc.id}`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Failed to download document.');
     }
   };
 
@@ -137,6 +155,7 @@ export default function DocumentsPage() {
         <div>
           <h1 className={appPageTitle}>Knowledge Documents</h1>
           <p className={appPageDesc}>Manage your organization&apos;s knowledge base documents</p>
+          <KnowledgeNav />
         </div>
 
         <div className={appToolbarRow}>
@@ -182,13 +201,22 @@ export default function DocumentsPage() {
                       <h3 className="text-base font-semibold text-[#1A1A14] line-clamp-2" title={doc.title}>{doc.title}</h3>
                     </div>
                     {canManageKnowledge && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDownload(doc)}
+                        className="p-2 rounded-lg text-[#6A6A60] hover:text-[#1A1A14] hover:bg-[#1A1A14]/5 transition"
+                        title="Download document"
+                      >
+                        <Download size={18} />
+                      </button>
                     <button 
                       onClick={() => handleDelete(doc.id)}
                       className={appBtnIconDanger}
-                      title="Disable document"
+                      title="Delete document"
                     >
                       <Trash2 size={18} />
                     </button>
+                    </div>
                     )}
                   </div>
 
@@ -228,17 +256,14 @@ export default function DocumentsPage() {
           )}
         </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
+        {(page > 1 || hasNextPage) && (
           <div className={`${appToolbarRow} py-4 mt-4`}>
-            <span className="text-sm text-[#6A6A60]">
-              Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total} documents
-            </span>
+            <span className="text-sm text-[#6A6A60]">Page {page}</span>
             <div className="flex gap-2">
               <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className={appPagination}>
                 Previous
               </button>
-              <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className={appPagination}>
+              <button disabled={!hasNextPage} onClick={() => setPage(p => p + 1)} className={appPagination}>
                 Next
               </button>
             </div>

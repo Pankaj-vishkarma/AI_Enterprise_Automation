@@ -7,6 +7,8 @@ import { departmentsAPI } from '../../api/departments';
 import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, UserCheck, UserX } from 'lucide-react';
 import { useRbac } from '../../hooks/useRbac';
+import { useToast } from '../../context/ToastContext';
+import { getApiErrorMessage } from '../../utils/apiError';
 import { PERMISSIONS } from '../../utils/rbac';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgSelect, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
@@ -23,6 +25,7 @@ const emptyForm = {
 
 export default function UsersPage({ isSubSection = false }) {
   const { hasPermission } = useRbac();
+  const toast = useToast();
   const canManageUsers = hasPermission(PERMISSIONS.MANAGE_USER_ROLES);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,7 +34,10 @@ export default function UsersPage({ isSubSection = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
 
-  const { data: usersData, isLoading, error } = useQuery({ queryKey: ['users'], queryFn: () => usersAPI.list() });
+  const { data: usersData, isLoading, error } = useQuery({
+    queryKey: ['users', page],
+    queryFn: () => usersAPI.list({ limit: 10, offset: (page - 1) * 10 }),
+  });
   const { data: rolesData } = useQuery({ queryKey: ['roles'], queryFn: () => rolesAPI.list() });
   const { data: deptData } = useQuery({ queryKey: ['departments'], queryFn: () => departmentsAPI.list() });
   const { data: teamData } = useQuery({ queryKey: ['teams'], queryFn: () => teamsAPI.list() });
@@ -71,21 +77,28 @@ export default function UsersPage({ isSubSection = false }) {
       setIsOpen(false);
       setForm(emptyForm);
       setErrorText('');
+      toast.success(form.id ? 'User updated successfully.' : 'User created successfully.');
     },
-    onError: (err) => setErrorText(err.response?.data?.detail || 'Unable to save user'),
+    onError: (err) => {
+      const message = getApiErrorMessage(err, 'Unable to save user');
+      setErrorText(message);
+      toast.error(message);
+    },
   });
   const statusMutation = useMutation({
     mutationFn: ({ id, active }) => active ? usersAPI.enable(id) : usersAPI.disable(id),
-    onSuccess: invalidate,
+    onSuccess: (_, { active }) => {
+      invalidate();
+      toast.success(active ? 'User enabled successfully.' : 'User disabled successfully.');
+    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Unable to update user status.')),
   });
 
   const usersList = usersData?.data || [];
-  const filteredUsers = usersList.filter((u) =>
+  const users = usersList.filter((u) =>
     `${u.first_name} ${u.last_name || ''} ${u.email}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const total = filteredUsers.length;
-  const totalPages = Math.ceil(total / 10) || 1;
-  const users = filteredUsers.slice((page - 1) * 10, page * 10);
+  const hasNextPage = usersList.length === 10;
 
   const openCreate = () => {
     setForm({ ...emptyForm, role_id: roles[0]?.id || '' });
@@ -203,10 +216,10 @@ export default function UsersPage({ isSubSection = false }) {
               </table>
             </div>
             <div className="px-4 sm:px-6 py-4 border-t border-[#1A1A14]/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-sm text-[#6A6A60]">Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total} users</span>
+              <span className="text-sm text-[#6A6A60]">Page {page}</span>
               <div className="flex gap-2">
                 <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={orgPagination}>Previous</button>
-                <button type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
+                <button type="button" disabled={!hasNextPage} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
               </div>
             </div>
           </>

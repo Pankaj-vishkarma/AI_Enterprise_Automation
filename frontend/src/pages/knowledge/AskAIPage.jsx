@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
+import KnowledgeNav from '../../components/knowledge/KnowledgeNav';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Send, Loader, Bot, User, HelpCircle, Sparkles } from 'lucide-react';
 import { appPageShellTall, appPageTitle, appPageDesc, appGlassCard, appInputPlain, appBtnPrimary, appBtnGhost } from '../../styles/appStyles';
@@ -72,6 +73,7 @@ export default function AskAIPage() {
             Knowledge Intelligence
           </h1>
           <p className={appPageDesc}>Query your uploaded business knowledge base using natural language AI</p>
+          <KnowledgeNav />
         </div>
 
         <div className={`flex-1 ${appGlassCard} overflow-y-auto mb-4 !p-4 sm:!p-6 space-y-4 min-h-0`}>

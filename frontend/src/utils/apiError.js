@@ -10,6 +10,10 @@ export function getApiErrorMessage(error, fallback = 'Something went wrong. Plea
 
   const detail = error.response?.data?.detail;
 
+  if (error.response?.data?.success === false && error.response?.data?.message) {
+    return error.response.data.message;
+  }
+
   if (typeof detail === 'string') {
     return detail;
   }

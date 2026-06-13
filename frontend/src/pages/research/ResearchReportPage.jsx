@@ -35,6 +35,21 @@ export default function ResearchReportPage() {
     document.body.removeChild(element);
   };
 
+  const handleExport = async (format) => {
+    try {
+      const { data } = await researchAPI.exportReport(id, format);
+      const element = document.createElement('a');
+      const ext = format === 'pdf' ? 'pdf' : 'xlsx';
+      element.href = URL.createObjectURL(data);
+      element.download = `${(report?.title || 'report').replace(/\s+/g, '_')}.${ext}`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } catch {
+      /* ignore */
+    }
+  };
+
   if (isLoading) {
     return (
       <MainLayout>
@@ -57,27 +72,37 @@ export default function ResearchReportPage() {
   return (
     <MainLayout>
       <div className={appPageShell}>
-        <div className="flex items-center gap-3">
-          <Link to="/research" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5">
-            <ArrowLeft size={20} />
-          </Link>
-          <div className="flex-1">
-            <h1 className={appPageTitle}>{report.title}</h1>
-            <p className={appPageDesc}>
-              <span className={appBadgeInfo}>{report.research_type}</span>
-              <span className="mx-2">•</span>
-              {report.status}
-            </p>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link to="/research" className="text-[#6A6A60] hover:text-[#1A1A14] transition p-1 rounded-lg hover:bg-[#1A1A14]/5 shrink-0">
+              <ArrowLeft size={20} />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <h1 className={`${appPageTitle} break-words`}>{report.title}</h1>
+              <p className={appPageDesc}>
+                <span className={appBadgeInfo}>{report.research_type}</span>
+                <span className="mx-2">•</span>
+                {report.status}
+              </p>
+            </div>
           </div>
-          <button onClick={handleDownload} className={`${appBtnGhost} !text-xs !py-2`}>
-            <Download size={14} /> Export
-          </button>
-          <button
-            onClick={() => window.confirm('Delete this report?') && deleteMutation.mutate()}
-            className={appBtnIconDanger}
-          >
-            <Trash2 size={16} />
-          </button>
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+            <button onClick={handleDownload} className={`${appBtnGhost} !text-xs !py-2`}>
+              <Download size={14} /> Markdown
+            </button>
+            <button onClick={() => handleExport('pdf')} className={`${appBtnGhost} !text-xs !py-2`}>
+              <Download size={14} /> PDF
+            </button>
+            <button onClick={() => handleExport('xlsx')} className={`${appBtnGhost} !text-xs !py-2`}>
+              <Download size={14} /> Excel
+            </button>
+            <button
+              onClick={() => window.confirm('Delete this report?') && deleteMutation.mutate()}
+              className={appBtnIconDanger}
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
         </div>
 
         {report.summary && (
@@ -87,7 +112,7 @@ export default function ResearchReportPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3 text-center text-xs">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs">
           <div className={`${appGlassCard} !p-3`}>
             <p className="text-[#6A6A60]">Confidence</p>
             <p className="font-bold text-[#1A1A14]">{report.confidence_score ?? '—'}%</p>

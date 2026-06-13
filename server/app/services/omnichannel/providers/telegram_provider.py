@@ -66,7 +66,7 @@ class TelegramProvider(ChannelProvider):
             response = requests.post(
                 f"{self._api_base()}/sendMessage",
                 json={"chat_id": chat_id, "text": content},
-                timeout=15,
+                timeout=settings.HTTP_CLIENT_TIMEOUT_SECONDS,
             )
             data = response.json()
             if data.get("ok"):

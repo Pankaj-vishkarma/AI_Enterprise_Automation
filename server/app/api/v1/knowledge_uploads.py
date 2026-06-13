@@ -36,7 +36,7 @@ def upload_file(
     current_user=Depends(require_permission(KNOWLEDGE_MANAGE_PERMISSION)),
     db: Session = Depends(get_db),
 ):
-    storage_dir = settings.STORAGE_ROOT or os.path.join(os.getcwd(), "uploads")
+    storage_dir = settings.STORAGE_ROOT
     os.makedirs(storage_dir, exist_ok=True)
     dest = os.path.join(storage_dir, file.filename)
     with open(dest, "wb") as f:

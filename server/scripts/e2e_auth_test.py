@@ -1,10 +1,11 @@
 import json
+import os
 import subprocess
 import time
 from urllib import error, request
 from urllib.parse import urlencode
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 SERVER_PYTHON = r".\\venv\\Scripts\\python.exe"
 SUPER_ADMIN_EMAIL = "superadmin@example.com"
 SUPER_ADMIN_PASSWORD = "ChangeMe123!"

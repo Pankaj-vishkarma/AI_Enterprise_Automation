@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import config from './config/env';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -90,8 +91,8 @@ const PublicRoute = ({ children }) => {
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      retry: 1,
+      staleTime: config.queryStaleTimeMs,
+      retry: config.queryRetry,
     },
   },
 });

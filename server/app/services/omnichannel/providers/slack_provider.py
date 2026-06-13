@@ -19,8 +19,6 @@ from app.services.omnichannel.providers.provider_utils import (
 
 logger = logging.getLogger(__name__)
 
-SLACK_API = "https://slack.com/api"
-
 
 class SlackProvider(ChannelProvider):
     channel_name = "Slack"
@@ -64,10 +62,10 @@ class SlackProvider(ChannelProvider):
                 return None
             try:
                 response = requests.post(
-                    f"{SLACK_API}/conversations.open",
+                    f"{settings.SLACK_API_URL}/conversations.open",
                     headers=self._headers(),
                     json={"users": user_id},
-                    timeout=15,
+                    timeout=settings.HTTP_CLIENT_TIMEOUT_SECONDS,
                 )
                 data = response.json()
                 if data.get("ok"):
@@ -98,10 +96,10 @@ class SlackProvider(ChannelProvider):
 
         try:
             response = requests.post(
-                f"{SLACK_API}/chat.postMessage",
+                f"{settings.SLACK_API_URL}/chat.postMessage",
                 headers=self._headers(),
                 json={"channel": channel_id, "text": content},
-                timeout=15,
+                timeout=settings.HTTP_CLIENT_TIMEOUT_SECONDS,
             )
             data = response.json()
             if data.get("ok"):

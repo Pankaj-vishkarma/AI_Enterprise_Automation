@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from app.core.config import settings
 from app.utils.chunking import chunk_text
 from app.repositories.knowledge_document_repository import KnowledgeDocumentRepository
 from app.repositories.knowledge_document_chunk_repository import (
@@ -13,7 +14,7 @@ class IngestService:
         self.db = db
         self.doc_repo = KnowledgeDocumentRepository(db)
         self.chunk_repo = KnowledgeDocumentChunkRepository(db)
-        self.storage_root = storage_root or "."
+        self.storage_root = storage_root or settings.STORAGE_ROOT
 
     def persist_file(
         self,

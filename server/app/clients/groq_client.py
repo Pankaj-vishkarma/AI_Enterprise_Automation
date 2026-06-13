@@ -22,7 +22,7 @@ class GroqClient:
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.2,
         }
-        r = requests.post(url, json=payload, headers=headers, timeout=30)
+        r = requests.post(url, json=payload, headers=headers, timeout=settings.GROQ_REQUEST_TIMEOUT_SECONDS)
         r.raise_for_status()
         data = r.json()
         text = data.get("choices", [{}])[0].get("message", {}).get("content", "")

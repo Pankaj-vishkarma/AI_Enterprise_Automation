@@ -3,15 +3,16 @@ from typing import List
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from app.core.config import settings
 from app.repositories.knowledge_document_chunk_repository import (
     KnowledgeDocumentChunkRepository,
 )
 
 
 class EmbeddingService:
-    def __init__(self, db, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, db, model_name: str | None = None):
         self.db = db
-        self.model = SentenceTransformer(model_name)
+        self.model = SentenceTransformer(model_name or settings.EMBEDDING_MODEL_NAME)
         self.chunk_repo = KnowledgeDocumentChunkRepository(db)
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:

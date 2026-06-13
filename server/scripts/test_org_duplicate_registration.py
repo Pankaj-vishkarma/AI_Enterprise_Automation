@@ -1,10 +1,11 @@
 """Test organization duplicate prevention during public registration."""
 
+import os
 import json
 import time
 from urllib import error, request
 
-BASE_URL = "http://127.0.0.1:8000"
+BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 ORG_NAME = "ABC Technologies"
 PASSWORD = "StrongPass123!"
 

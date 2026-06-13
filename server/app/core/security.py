@@ -37,7 +37,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 def create_refresh_token(data: dict):
     payload = data.copy()
 
-    expire = datetime.utcnow() + timedelta(days=7)
+    expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
     payload.update({"exp": expire})
 
@@ -45,7 +45,7 @@ def create_refresh_token(data: dict):
 
 
 def create_password_reset_token(user_id: int) -> str:
-    expire = datetime.utcnow() + timedelta(hours=1)
+    expire = datetime.utcnow() + timedelta(hours=settings.PASSWORD_RESET_TOKEN_EXPIRE_HOURS)
     payload = {
         "sub": str(user_id),
         "type": "password_reset",

@@ -1,9 +1,8 @@
 import axios from 'axios';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+import config from '../config/env';
 
 const client = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: config.apiBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -11,12 +10,12 @@ const client = axios.create({
 
 // Request interceptor: inject access token
 client.interceptors.request.use(
-  (config) => {
+  (reqConfig) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      reqConfig.headers.Authorization = `Bearer ${token}`;
     }
-    return config;
+    return reqConfig;
   },
   (error) => Promise.reject(error)
 );
@@ -36,7 +35,7 @@ client.interceptors.response.use(
           throw new Error('No refresh token');
         }
 
-        const response = await axios.post(`${API_BASE_URL}/api/v1/auth/refresh`, {
+        const response = await axios.post(`${config.apiBaseUrl}/api/v1/auth/refresh`, {
           refresh_token: refreshToken,
         });
 

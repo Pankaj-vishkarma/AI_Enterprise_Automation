@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import MainLayout from '../../components/layout/MainLayout';
 import UsersPage from './UsersPage';
 import DepartmentsPage from './DepartmentsPage';
@@ -6,20 +6,28 @@ import TeamsPage from './TeamsPage';
 import RolesPage from './RolesPage';
 import PermissionsPage from './PermissionsPage';
 import { Users, Network, Lock, Shield, Sparkles } from 'lucide-react';
-import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgCard, orgTabActive, orgTabInactive } from './orgStyles';
+import { orgPageShell, orgPageTitle, orgPageDesc, orgCard, orgTabActive, orgTabInactive } from './orgStyles';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 
 export default function OrganizationManagementPage() {
+  const { hasPermission } = useRbac();
   const [activeTab, setActiveTab] = useState('users');
 
-  const tabs = [
-    { id: 'users', label: 'Users', icon: Users, component: UsersPage },
-    { id: 'departments', label: 'Departments', icon: Network, component: DepartmentsPage },
-    { id: 'teams', label: 'Teams', icon: Network, component: TeamsPage },
-    { id: 'roles', label: 'Roles', icon: Lock, component: RolesPage },
-    { id: 'permissions', label: 'Permissions', icon: Shield, component: PermissionsPage },
-  ];
+  const tabs = useMemo(
+    () =>
+      [
+        { id: 'users', label: 'Users', icon: Users, component: UsersPage, visible: hasPermission(PERMISSIONS.MANAGE_USER_ROLES) || hasPermission(PERMISSIONS.MANAGE_USER_ASSIGNMENTS) },
+        { id: 'departments', label: 'Departments', icon: Network, component: DepartmentsPage, visible: hasPermission(PERMISSIONS.MANAGE_DEPARTMENTS) },
+        { id: 'teams', label: 'Teams', icon: Network, component: TeamsPage, visible: hasPermission(PERMISSIONS.VIEW_TEAMS) },
+        { id: 'roles', label: 'Roles', icon: Lock, component: RolesPage, visible: hasPermission(PERMISSIONS.VIEW_ROLES) },
+        { id: 'permissions', label: 'Permissions', icon: Shield, component: PermissionsPage, visible: hasPermission(PERMISSIONS.VIEW_PERMISSIONS) },
+      ].filter((tab) => tab.visible),
+    [hasPermission],
+  );
 
-  const ActiveComponent = tabs.find((tab) => tab.id === activeTab)?.component || UsersPage;
+  const active = tabs.find((tab) => tab.id === activeTab) || tabs[0];
+  const ActiveComponent = active?.component || UsersPage;
 
   return (
     <MainLayout>
@@ -42,7 +50,7 @@ export default function OrganizationManagementPage() {
               key={tab.id}
               type="button"
               onClick={() => setActiveTab(tab.id)}
-              className={activeTab === tab.id ? orgTabActive : orgTabInactive}
+              className={active?.id === tab.id ? orgTabActive : orgTabInactive}
             >
               <tab.icon size={14} />
               {tab.label}
@@ -51,7 +59,7 @@ export default function OrganizationManagementPage() {
         </div>
 
         <div className={`${orgCard} p-5 sm:p-6 min-h-[400px]`}>
-          <ActiveComponent isSubSection={true} />
+          <ActiveComponent isSubSection />
         </div>
       </div>
     </MainLayout>

@@ -3,11 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { departmentsAPI } from '../../api/departments';
 import { Plus, Edit, Search, Power } from 'lucide-react';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
 const emptyForm = { id: null, name: '', description: '' };
 
 export default function DepartmentsPage({ isSubSection = false }) {
+  const { hasPermission } = useRbac();
+  const canManageDepartments = hasPermission(PERMISSIONS.MANAGE_DEPARTMENTS);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -62,10 +66,12 @@ export default function DepartmentsPage({ isSubSection = false }) {
             <input type="text" placeholder="Search departments..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }} className={orgInputWithIcon} />
           </div>
         </div>
-        <button type="button" onClick={() => openForm()} className={orgBtnPrimary}>
-          <Plus size={18} />
-          Add Department
-        </button>
+        {canManageDepartments && (
+          <button type="button" onClick={() => openForm()} className={orgBtnPrimary}>
+            <Plus size={18} />
+            Add Department
+          </button>
+        )}
       </div>
 
       <div className={orgTableWrap}>
@@ -90,10 +96,14 @@ export default function DepartmentsPage({ isSubSection = false }) {
                         <span className={dept.is_active ? orgBadgeActive : orgBadgeInactive}>{dept.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
                       <td className={orgTd}>
+                        {canManageDepartments ? (
                         <div className="flex items-center justify-center gap-1">
                           <button type="button" onClick={() => openForm(dept)} className={orgBtnIconPrimary} title="Edit department"><Edit size={18} /></button>
                           <button type="button" onClick={() => statusMutation.mutate({ id: dept.id, active: !dept.is_active })} className={orgBtnIcon} title={dept.is_active ? 'Disable department' : 'Enable department'}><Power size={18} /></button>
                         </div>
+                        ) : (
+                          <span className={orgTdMuted}>—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

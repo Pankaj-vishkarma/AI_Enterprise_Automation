@@ -4,7 +4,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import (
+    WORKFLOW_APPROVE_PERMISSION,
+    WORKFLOW_USE_PERMISSION,
+    require_permission,
+)
 from app.schemas.workflow import (
     InstanceStartRequest,
     StepActionRequest,
@@ -19,18 +23,21 @@ from app.services.workflow_service import WorkflowService
 
 router = APIRouter(prefix="/api/v1/workflows", tags=["workflows"])
 
+require_workflow_use = require_permission(WORKFLOW_USE_PERMISSION)
+require_workflow_approve = require_permission(WORKFLOW_APPROVE_PERMISSION)
+
 
 def _permission_error(exc: PermissionError):
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
 
 
 @router.get("/templates")
-def get_templates(current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def get_templates(current_user=Depends(require_workflow_use), db: Session = Depends(get_db)):
     return WorkflowService(db).get_templates()
 
 
 @router.get("/metrics", response_model=WorkflowMetrics)
-def get_metrics(current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def get_metrics(current_user=Depends(require_workflow_use), db: Session = Depends(get_db)):
     return WorkflowService(db).get_metrics(current_user)
 
 
@@ -38,7 +45,7 @@ def get_metrics(current_user=Depends(get_current_active_user), db: Session = Dep
 def list_instances(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     return WorkflowService(db).list_instances(current_user, limit=limit, offset=offset)
@@ -47,10 +54,13 @@ def list_instances(
 @router.get("/instances/{instance_id}", response_model=WorkflowInstanceResponse)
 def get_instance(
     instance_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
-    result = WorkflowService(db).get_instance(current_user, instance_id)
+    try:
+        result = WorkflowService(db).get_instance(current_user, instance_id)
+    except PermissionError as exc:
+        _permission_error(exc)
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Instance not found")
     return result
@@ -61,7 +71,7 @@ def approve_step(
     instance_id: int,
     step_id: int,
     payload: StepActionRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_approve),
     db: Session = Depends(get_db),
 ):
     try:
@@ -82,7 +92,7 @@ def reject_step(
     instance_id: int,
     step_id: int,
     payload: StepActionRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_approve),
     db: Session = Depends(get_db),
 ):
     try:
@@ -101,7 +111,7 @@ def reject_step(
 @router.post("/instances/{instance_id}/cancel", response_model=WorkflowInstanceResponse)
 def cancel_instance(
     instance_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     try:
@@ -116,7 +126,7 @@ def cancel_instance(
 @router.get("/notifications/me")
 def list_my_notifications(
     unread_only: bool = False,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     return NotificationService(db).list_for_user(
@@ -127,7 +137,7 @@ def list_my_notifications(
 @router.post("/notifications/{notification_id}/read")
 def mark_notification_read(
     notification_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     ok = NotificationService(db).mark_read(
@@ -139,14 +149,14 @@ def mark_notification_read(
 
 
 @router.get("", response_model=List[WorkflowResponse])
-def list_workflows(current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def list_workflows(current_user=Depends(require_workflow_use), db: Session = Depends(get_db)):
     return WorkflowService(db).list_workflows(current_user)
 
 
 @router.post("", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
 def create_workflow(
     payload: WorkflowCreate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     try:
@@ -158,7 +168,7 @@ def create_workflow(
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
 def get_workflow(
     workflow_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     result = WorkflowService(db).get_workflow(current_user, workflow_id)
@@ -171,7 +181,7 @@ def get_workflow(
 def update_workflow(
     workflow_id: int,
     payload: WorkflowUpdate,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     try:
@@ -188,7 +198,7 @@ def update_workflow(
 @router.post("/{workflow_id}/disable", response_model=WorkflowResponse)
 def disable_workflow(
     workflow_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     try:
@@ -203,7 +213,7 @@ def disable_workflow(
 @router.delete("/{workflow_id}")
 def delete_workflow(
     workflow_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     try:
@@ -219,7 +229,7 @@ def delete_workflow(
 def start_workflow(
     workflow_id: int,
     payload: InstanceStartRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
     try:

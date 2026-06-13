@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import SUPER_ADMIN_ROLE
+from app.core.dependencies import MANAGER_ROLE, SUPER_ADMIN_ROLE
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.team_repository import TeamRepository
 
@@ -18,6 +18,14 @@ class TeamService:
         if role_name == SUPER_ADMIN_ROLE:
             return self.team_repo.list_all()
 
+        if role_name == MANAGER_ROLE:
+            if not current_user.team_id:
+                return []
+            team = self.team_repo.get_by_id(current_user.team_id)
+            if not team or team.organization_id != current_user.organization_id:
+                return []
+            return [team]
+
         return self.team_repo.list_by_organization(current_user.organization_id)
 
     def get_team_by_id(self, current_user, team_id: int):
@@ -33,6 +41,9 @@ class TeamService:
             and team.organization_id != current_user.organization_id
         ):
             raise PermissionError("Cross-organization team access is not allowed")
+
+        if role_name == MANAGER_ROLE and current_user.team_id != team_id:
+            raise PermissionError("You do not have access to this team")
 
         return team
 

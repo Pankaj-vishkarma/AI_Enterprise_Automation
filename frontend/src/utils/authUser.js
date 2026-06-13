@@ -9,5 +9,6 @@ export function normalizeAuthUser(userData) {
     organizationName: userData.organization_name,
     createdAt: userData.created_at,
     lastLogin: userData.last_login,
+    permissions: userData.permissions || [],
   };
 }

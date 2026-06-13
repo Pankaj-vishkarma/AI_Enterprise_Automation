@@ -6,6 +6,8 @@ import { rolesAPI } from '../../api/roles';
 import { departmentsAPI } from '../../api/departments';
 import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, UserCheck, UserX } from 'lucide-react';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgSelect, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
 const emptyForm = {
@@ -20,6 +22,8 @@ const emptyForm = {
 };
 
 export default function UsersPage({ isSubSection = false }) {
+  const { hasPermission } = useRbac();
+  const canManageUsers = hasPermission(PERMISSIONS.MANAGE_USER_ROLES);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -131,10 +135,12 @@ export default function UsersPage({ isSubSection = false }) {
             />
           </div>
         </div>
-        <button type="button" onClick={openCreate} className={orgBtnPrimary}>
-          <Plus size={18} />
-          Add User
-        </button>
+        {canManageUsers && (
+          <button type="button" onClick={openCreate} className={orgBtnPrimary}>
+            <Plus size={18} />
+            Add User
+          </button>
+        )}
       </div>
 
       <div className={orgTableWrap}>
@@ -173,6 +179,7 @@ export default function UsersPage({ isSubSection = false }) {
                         </span>
                       </td>
                       <td className={orgTd}>
+                        {canManageUsers ? (
                         <div className="flex items-center justify-center gap-1">
                           <button type="button" onClick={() => openEdit(user)} className={orgBtnIconPrimary} title="Edit user">
                             <Edit size={18} />
@@ -186,6 +193,9 @@ export default function UsersPage({ isSubSection = false }) {
                             {user.is_active ? <UserX size={18} /> : <UserCheck size={18} />}
                           </button>
                         </div>
+                        ) : (
+                          <span className={orgTdMuted}>—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

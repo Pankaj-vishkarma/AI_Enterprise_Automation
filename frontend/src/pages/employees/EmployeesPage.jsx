@@ -6,6 +6,8 @@ import { aiEmployeesAPI } from '../../api/aiEmployees';
 import { departmentsAPI } from '../../api/departments';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Plus, Bot, UserCheck, Settings, X, Loader } from 'lucide-react';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 import { appPageShell, appToolbarRow, appGrid, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon, appModalOverlay, appModal, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel, appBadgeActive, appBadgeWarning, appBadgeInfo } from '../../styles/appStyles';
 
 const ROLE_COLORS = {
@@ -37,6 +39,8 @@ function mapEmployee(item) {
 }
 
 export default function EmployeesPage() {
+  const { hasPermission } = useRbac();
+  const canManageEmployees = hasPermission(PERMISSIONS.AI_EMPLOYEE_MANAGE);
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -142,10 +146,12 @@ export default function EmployeesPage() {
               Deploy specialized AI agents for department-specific support across your organization.
             </p>
           </div>
-          <button onClick={openCreate} className={appBtnPrimary}>
-            <Plus size={20} />
-            Hire AI Employee
-          </button>
+          {canManageEmployees && (
+            <button onClick={openCreate} className={appBtnPrimary}>
+              <Plus size={20} />
+              Hire AI Employee
+            </button>
+          )}
         </div>
 
         {isLoading ? (
@@ -159,9 +165,11 @@ export default function EmployeesPage() {
             <p className="text-[#6A6A60] mt-2 mb-6">
               Hire your first virtual team member to automate HR, support, sales, research, or documentation tasks.
             </p>
-            <button onClick={openCreate} className={appBtnPrimary}>
-              Hire AI Employee
-            </button>
+            {canManageEmployees && (
+              <button onClick={openCreate} className={appBtnPrimary}>
+                Hire AI Employee
+              </button>
+            )}
           </div>
         ) : (
           <div className={`${appGrid} grid-cols-1 md:grid-cols-2 lg:grid-cols-3`}>

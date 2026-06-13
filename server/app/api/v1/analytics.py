@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import require_permission, ANALYTICS_VIEW_PERMISSION
 from app.schemas.analytics import AnalyticsDashboardResponse, AnalyticsReportResponse
 from app.services.analytics_service import AnalyticsService
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/api/v1/analytics", tags=["analytics"])
 def analytics_dashboard(
     start_date: Optional[datetime] = Query(default=None),
     end_date: Optional[datetime] = Query(default=None),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_permission(ANALYTICS_VIEW_PERMISSION)),
     db: Session = Depends(get_db),
 ):
     return AnalyticsService(db).get_dashboard(current_user, start_date, end_date)
@@ -28,7 +28,7 @@ def analytics_report(
     start_date: Optional[datetime] = Query(default=None),
     end_date: Optional[datetime] = Query(default=None),
     format: str = Query(default="markdown", alias="format"),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_permission(ANALYTICS_VIEW_PERMISSION)),
     db: Session = Depends(get_db),
 ):
     if report_type not in {"executive", "operational", "business"}:

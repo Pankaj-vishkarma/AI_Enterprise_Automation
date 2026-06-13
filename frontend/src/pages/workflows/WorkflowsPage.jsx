@@ -11,6 +11,8 @@ import {
   Layers, Plus, Play, BarChart3, History, X, Loader, Trash2, Power, Edit,
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect, appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading, appModalOverlay, appModal, appLabel, appTabActive, appTabInactive, appBadgeActive, appBadgeInactive, appBadgeWarning } from '../../styles/appStyles';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS, ROLES } from '../../utils/rbac';
 
 const emptyStep = () => ({
   name: '', step_type: 'approval', assignee_type: 'user', assignee_id: '', position: 0,
@@ -21,6 +23,10 @@ const emptyForm = {
 };
 
 export default function WorkflowsPage() {
+  const { hasPermission, hasRole } = useRbac();
+  const canUseWorkflows = hasPermission(PERMISSIONS.WORKFLOW_USE);
+  const canManageWorkflows = hasPermission(PERMISSIONS.WORKFLOW_MANAGE)
+    || hasRole(ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.MANAGER);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('instances');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -173,12 +179,14 @@ export default function WorkflowsPage() {
             </h1>
             <p className={appPageDesc}>Design, assign, and track multi-step approval processes.</p>
           </div>
+          {canManageWorkflows && (
           <button
             onClick={() => openBuilder()}
             className={appBtnPrimary}
           >
             <Plus size={18} /> Create Workflow
           </button>
+          )}
         </div>
 
         <div className="flex gap-2 border-b border-[#1A1A14]/10 overflow-x-auto">
@@ -257,17 +265,25 @@ export default function WorkflowsPage() {
                       <h3 className="font-bold text-[#1A1A14]">{wf.name}</h3>
                       <p className="text-xs text-[#6A6A60]">{wf.category} • {wf.step_count} steps • {wf.status}</p>
                     </div>
+                    {canManageWorkflows || canUseWorkflows ? (
                     <div className="flex gap-1">
-                      <button onClick={() => openBuilder(wf)} className={appBtnIcon}><Edit size={16} /></button>
-                      {wf.status !== 'active' && (
+                      {canManageWorkflows && (
+                        <button onClick={() => openBuilder(wf)} className={appBtnIcon}><Edit size={16} /></button>
+                      )}
+                      {canManageWorkflows && wf.status !== 'active' && (
                         <button onClick={() => activateWorkflow(wf.id)} className={`${appBtnIcon} text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50`}><Power size={16} /></button>
                       )}
-                      {wf.status === 'active' && (
+                      {canUseWorkflows && wf.status === 'active' && (
                         <button onClick={() => setStartModal({ open: true, workflowId: wf.id, title: `${wf.name} - ${new Date().toLocaleDateString()}` })} className={`${appBtnIcon} text-[#1A1A14]`}><Play size={16} /></button>
                       )}
-                      <button onClick={() => disableMutation.mutate(wf.id)} className={appBtnIcon}><Power size={16} /></button>
-                      <button onClick={() => window.confirm('Delete workflow?') && deleteMutation.mutate(wf.id)} className={appBtnIconDanger}><Trash2 size={16} /></button>
+                      {canManageWorkflows && (
+                        <button onClick={() => disableMutation.mutate(wf.id)} className={appBtnIcon}><Power size={16} /></button>
+                      )}
+                      {canManageWorkflows && (
+                        <button onClick={() => window.confirm('Delete workflow?') && deleteMutation.mutate(wf.id)} className={appBtnIconDanger}><Trash2 size={16} /></button>
+                      )}
                     </div>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {(wf.steps || []).map((s, i) => (

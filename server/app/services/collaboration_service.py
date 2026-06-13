@@ -8,6 +8,12 @@ from app.core.dependencies import MANAGER_ROLE, ORG_ADMIN_ROLE, SUPER_ADMIN_ROLE
 from app.repositories.ai_employee_repository import AIEmployeeRepository
 from app.repositories.collaboration_repository import CollaborationRepository
 from app.services.ai_employee_service import AIEmployeeService
+from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import (
+    assert_can_view_user_owned_record,
+    filter_user_owned_records,
+    resolve_team_member_ids,
+)
 
 
 class CollaborationService:
@@ -21,6 +27,17 @@ class CollaborationService:
         role_name = current_user.role.name if current_user.role else None
         if role_name not in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE, MANAGER_ROLE}:
             raise PermissionError("Insufficient permissions to manage collaboration teams")
+
+    def _team_member_ids(self, current_user):
+        users = UserRepository(self.db).list_by_organization(current_user.organization_id)
+        return resolve_team_member_ids(users, current_user)
+
+    def _assert_run_access(self, current_user, run) -> None:
+        assert_can_view_user_owned_record(
+            current_user,
+            run.user_id,
+            self._team_member_ids(current_user),
+        )
 
     def list_teams(self, current_user):
         teams = self.repo.list_teams(current_user.organization_id)
@@ -310,12 +327,19 @@ class CollaborationService:
 
     def list_runs(self, current_user, limit: int = 50, offset: int = 0):
         runs = self.repo.list_runs(current_user.organization_id, limit=limit, offset=offset)
+        runs = filter_user_owned_records(
+            current_user,
+            runs,
+            owner_attr="user_id",
+            member_ids=self._team_member_ids(current_user),
+        )
         return [self.repo.serialize_run(run) for run in runs]
 
     def get_run(self, current_user, run_id: int):
         run = self.repo.get_run(current_user.organization_id, run_id)
         if not run:
             return None
+        self._assert_run_access(current_user, run)
         return self.repo.serialize_run(run)
 
     def get_metrics(self, current_user):

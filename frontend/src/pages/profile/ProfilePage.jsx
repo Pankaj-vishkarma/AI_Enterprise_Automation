@@ -9,7 +9,7 @@ import { getApiErrorMessage } from '../../utils/apiError';
 import { normalizeAuthUser } from '../../utils/authUser';
 import {
   appPageShell, appPageTitle, appPageDesc, appGlassCard, appGrid,
-  appBadgeActive, appBadgeInactive, appLoading,
+  appSectionTitle, appBadgeActive, appBadgeInactive, appBadgeInfo, appEmpty,
 } from '../../styles/appStyles';
 
 function formatDate(value) {
@@ -33,7 +33,7 @@ function ProfileField({ icon: Icon, label, value }) {
       </div>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-medium uppercase tracking-wide text-[#6A6A60]">{label}</p>
-        <p className="text-sm sm:text-base font-medium text-[#1A1A14] mt-0.5 break-words">{value || '—'}</p>
+        <p className="text-sm font-medium text-[#1A1A14] mt-0.5 break-words">{value || '—'}</p>
       </div>
     </div>
   );
@@ -77,19 +77,20 @@ export default function ProfilePage() {
   return (
     <MainLayout>
       <div className={appPageShell}>
-        <div>
-          <h1 className={appPageTitle}>My Profile</h1>
-          <p className={appPageDesc}>View your account details and organization membership.</p>
+        <div className="min-w-0">
+          <h1 className={`${appPageTitle} flex items-center gap-2`}>
+            <User size={32} className="text-[#1A1A14] shrink-0" />
+            My Profile
+          </h1>
+          <p className={appPageDesc}>
+            View your account details and organization membership.
+          </p>
         </div>
 
         {loading ? (
-          <div className={appLoading}>Loading profile...</div>
+          <div className={appEmpty}>Loading profile...</div>
         ) : !profile ? (
-          <div className={appGlassCard}>
-            <p className="text-sm text-[#6A6A60] text-center py-8">
-              Unable to load profile. Please try refreshing the page.
-            </p>
-          </div>
+          <div className={appEmpty}>Unable to load profile. Please try refreshing the page.</div>
         ) : (
           <div className={`${appGrid} grid-cols-1 lg:grid-cols-3`}>
             <div className={`lg:col-span-1 ${appGlassCard} flex flex-col items-center text-center`}>
@@ -103,15 +104,13 @@ export default function ProfilePage() {
               <p className="text-sm text-[#6A6A60] mt-1 break-all w-full">{profile.email}</p>
               <span className={`${statusBadge} mt-4`}>{statusLabel}</span>
               {profile.role && (
-                <span className="mt-2 px-2.5 py-1 rounded-full text-xs font-medium bg-[#1A1A14]/5 text-[#1A1A14] border border-[#1A1A14]/10">
-                  {profile.role}
-                </span>
+                <span className={`${appBadgeInfo} mt-2`}>{profile.role}</span>
               )}
             </div>
 
             <div className={`lg:col-span-2 ${appGlassCard}`}>
-              <h3 className="text-lg font-bold text-[#1A1A14] mb-5">Account Information</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+              <h2 className={`${appSectionTitle} mb-4`}>Account Information</h2>
+              <div className={`${appGrid} grid-cols-1 sm:grid-cols-2`}>
                 <ProfileField icon={User} label="Full Name" value={profile.fullName} />
                 <ProfileField icon={Mail} label="Email" value={profile.email} />
                 <ProfileField icon={AtSign} label="Username" value={profile.username || 'Not set'} />

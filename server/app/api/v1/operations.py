@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import ANALYTICS_VIEW_PERMISSION, get_current_active_user, require_permission
 from app.schemas.operations import (
     AnalyticsResponse,
     AgentTaskRequest,
@@ -106,5 +106,5 @@ def run_reasoning(module: str, payload: ReasoningRequest, current_user=Depends(g
 
 
 @router.get("/analytics/overview", response_model=AnalyticsResponse)
-def analytics_overview(current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def analytics_overview(current_user=Depends(require_permission(ANALYTICS_VIEW_PERMISSION)), db: Session = Depends(get_db)):
     return OperationsService(db).analytics(current_user)

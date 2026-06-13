@@ -11,6 +11,7 @@ from app.repositories.department_repository import DepartmentRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.team_repository import TeamRepository
 from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import assert_can_view_user_profile, can_view_user_profile
 
 
 class UserService:
@@ -41,10 +42,18 @@ class UserService:
 
         if role_name == MANAGER_ROLE:
             employee_role = self._role_by_name(EMPLOYEE_ROLE)
-            return self.user_repo.list_by_organization_and_roles(
+            employees = self.user_repo.list_by_organization_and_roles(
                 current_user.organization_id,
                 [employee_role.id],
             )
+            visible = [
+                user
+                for user in employees
+                if can_view_user_profile(current_user, user)
+            ]
+            if current_user.id not in {user.id for user in visible}:
+                visible.insert(0, current_user)
+            return visible
 
         return [current_user]
 
@@ -152,6 +161,8 @@ class UserService:
             and target_user.organization_id != current_user.organization_id
         ):
             raise PermissionError("Cross-organization user access is not allowed")
+
+        assert_can_view_user_profile(current_user, target_user)
 
         return target_user
 

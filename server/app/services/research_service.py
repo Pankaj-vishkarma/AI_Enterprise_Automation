@@ -13,6 +13,12 @@ from app.schemas.research import RESEARCH_TEMPLATES, RESEARCH_TYPES
 from app.services.ai_employee_service import AIEmployeeService
 from app.services.browser_automation_service import execute_browser_task
 from app.services.rag_service import RAGService
+from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import (
+    assert_can_view_user_owned_record,
+    filter_user_owned_records,
+    resolve_team_member_ids,
+)
 
 RESEARCH_AGENT_PIPELINE = [
     (
@@ -46,23 +52,42 @@ class ResearchService:
         self.ai_employee_repo = AIEmployeeRepository(db)
         self.groq = GroqClient()
 
+    def _team_member_ids(self, current_user):
+        users = UserRepository(self.db).list_by_organization(current_user.organization_id)
+        return resolve_team_member_ids(users, current_user)
+
+    def _assert_report_access(self, current_user, report) -> None:
+        assert_can_view_user_owned_record(
+            current_user,
+            report.created_by_user_id,
+            self._team_member_ids(current_user),
+        )
+
     def get_templates(self):
         return RESEARCH_TEMPLATES
 
     def list_reports(self, current_user, limit: int = 50, offset: int = 0):
         reports = self.repo.list_reports(current_user.organization_id, limit, offset)
+        reports = filter_user_owned_records(
+            current_user,
+            reports,
+            owner_attr="created_by_user_id",
+            member_ids=self._team_member_ids(current_user),
+        )
         return [self._serialize(r) for r in reports]
 
     def get_report(self, current_user, report_id: int):
         report = self.repo.get_report(current_user.organization_id, report_id)
         if not report:
             return None
+        self._assert_report_access(current_user, report)
         return self._serialize(report)
 
     def delete_report(self, current_user, report_id: int):
         report = self.repo.get_report(current_user.organization_id, report_id)
         if not report:
             return None
+        self._assert_report_access(current_user, report)
         self.repo.soft_delete(report)
         return {"id": report_id, "deleted": True}
 

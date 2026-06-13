@@ -1,12 +1,15 @@
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import (
+    MANAGER_ROLE,
     ORG_ADMIN_ROLE,
     SUPER_ADMIN_ROLE,
 )
 
 from app.repositories.department_repository import DepartmentRepository
 from app.repositories.organization_repository import OrganizationRepository
+from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import resolve_team_member_ids
 
 
 class DepartmentService:
@@ -15,17 +18,48 @@ class DepartmentService:
         self.db = db
         self.department_repo = DepartmentRepository(db)
         self.organization_repo = OrganizationRepository(db)
+        self.user_repo = UserRepository(db)
 
     def list_departments(self, current_user):
-
+        all_departments = self.department_repo.list_by_organization(
+            current_user.organization_id
+        )
         role_name = current_user.role.name
 
-        if role_name == SUPER_ADMIN_ROLE:
-            return self.department_repo.list_by_organization(
-                current_user.organization_id
-            )
+        if role_name in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
+            return all_departments
 
-        return self.department_repo.list_by_organization(current_user.organization_id)
+        if role_name == MANAGER_ROLE:
+            if not current_user.team_id:
+                if current_user.department_id:
+                    return [
+                        department
+                        for department in all_departments
+                        if department.id == current_user.department_id
+                    ]
+                return []
+            org_users = self.user_repo.list_by_organization(current_user.organization_id)
+            team_member_ids = resolve_team_member_ids(org_users, current_user)
+            department_ids = {
+                user.department_id
+                for user in org_users
+                if user.id in team_member_ids and user.department_id is not None
+            }
+            if current_user.department_id:
+                department_ids.add(current_user.department_id)
+            return [
+                department
+                for department in all_departments
+                if department.id in department_ids
+            ]
+
+        if current_user.department_id:
+            return [
+                department
+                for department in all_departments
+                if department.id == current_user.department_id
+            ]
+        return []
 
     def create_department(
         self,

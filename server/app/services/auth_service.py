@@ -14,6 +14,8 @@ from app.repositories.user_repository import UserRepository
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.user_session_repository import UserSessionRepository
+from app.services.rbac_service import RbacService
+from app.core.dependencies import get_user_permissions
 from app.utils.organization_name import ORGANIZATION_EXISTS_MESSAGE
 
 PUBLIC_REGISTRATION_ROLE = "ORG_ADMIN"
@@ -41,6 +43,8 @@ class AuthService:
             raise ValueError(ORGANIZATION_EXISTS_MESSAGE)
 
         organization = self.organization_repo.create(trimmed_org_name)
+
+        RbacService(self.user_repo.db).ensure_rbac_defaults()
 
         role = self.role_repo.get_by_name(PUBLIC_REGISTRATION_ROLE)
 
@@ -212,4 +216,5 @@ class AuthService:
             "is_active": user.is_active,
             "created_at": user.created_at,
             "last_login": last_session.created_at if last_session else None,
+            "permissions": sorted(get_user_permissions(user)),
         }

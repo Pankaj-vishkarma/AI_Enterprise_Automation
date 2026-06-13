@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { knowledgeAPI } from '../../api/knowledge';
 import { Search, Upload, Trash2, X, FileText, AlertCircle, RefreshCw } from 'lucide-react';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 import {
   appPageShell, appToolbarRow, appSearchWrap, appGrid, appPageTitle, appPageDesc, appInputWithIcon, appBtnPrimary, appBtnGhost, appBtnIconDanger,
   appGlassCard, appEmpty, appModalOverlay, appModal, appError, appInputPlain, appSelect,
@@ -22,6 +24,8 @@ const SUPPORTED_TYPES = [
 ];
 
 export default function DocumentsPage() {
+  const { hasPermission } = useRbac();
+  const canManageKnowledge = hasPermission(PERMISSIONS.KNOWLEDGE_MANAGE);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -151,10 +155,12 @@ export default function DocumentsPage() {
               />
             </div>
           </div>
-          <button onClick={() => setIsUploadOpen(true)} className={appBtnPrimary}>
-            <Upload size={18} />
-            Upload Document
-          </button>
+          {canManageKnowledge && (
+            <button onClick={() => setIsUploadOpen(true)} className={appBtnPrimary}>
+              <Upload size={18} />
+              Upload Document
+            </button>
+          )}
         </div>
 
         <div className={`${appGrid} grid-cols-1 md:grid-cols-2 lg:grid-cols-3`}>
@@ -175,6 +181,7 @@ export default function DocumentsPage() {
                       <FileText className="text-[#1A1A14] flex-shrink-0" size={22} />
                       <h3 className="text-base font-semibold text-[#1A1A14] line-clamp-2" title={doc.title}>{doc.title}</h3>
                     </div>
+                    {canManageKnowledge && (
                     <button 
                       onClick={() => handleDelete(doc.id)}
                       className={appBtnIconDanger}
@@ -182,6 +189,7 @@ export default function DocumentsPage() {
                     >
                       <Trash2 size={18} />
                     </button>
+                    )}
                   </div>
 
                   <div className="space-y-2 text-sm text-[#6A6A60]">
@@ -203,7 +211,7 @@ export default function DocumentsPage() {
                 <div className="mt-4 border-t border-[#1A1A14]/10 pt-4 text-xs text-[#6A6A60] flex justify-between items-center">
                   <span>ID: #{doc.id}</span>
                   <div className="flex items-center gap-2">
-                    {doc.status === 'failed' && (
+                    {canManageKnowledge && doc.status === 'failed' && (
                       <button
                         onClick={() => retryMutation.mutate(doc.id)}
                         className="text-[#1A1A14] hover:underline inline-flex items-center gap-1 font-medium"

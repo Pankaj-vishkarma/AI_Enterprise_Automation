@@ -6,9 +6,15 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy.orm import Session
 
 from app.clients.groq_client import GroqClient
-from app.core.dependencies import KNOWLEDGE_ASK_PERMISSION
+from app.core.dependencies import (
+    KNOWLEDGE_ASK_PERMISSION,
+    MANAGER_ROLE,
+    ORG_ADMIN_ROLE,
+    SUPER_ADMIN_ROLE,
+)
 from app.repositories.ai_employee_repository import AIEmployeeRepository
 from app.repositories.operational_record_repository import OperationalRecordRepository
+from app.repositories.user_repository import UserRepository
 from app.repositories.voice_repository import VoiceRepository
 from app.repositories.workflow_repository import WorkflowRepository
 from app.schemas.workflow import WORKFLOW_TEMPLATES
@@ -20,6 +26,11 @@ from app.services.research_service import ResearchService
 from app.services.support_service import SupportService
 from app.services.omnichannel_service import OmnichannelService
 from app.services.workflow_service import WorkflowService
+from app.utils.rbac_scope import (
+    assert_can_view_user_owned_record,
+    can_view_user_owned_record,
+    resolve_team_member_ids,
+)
 
 
 VOICE_INTENTS = [
@@ -73,6 +84,25 @@ class VoiceService:
         self.workflows = WorkflowService(db)
         self.research = ResearchService(db)
         self.browser = BrowserService(db)
+
+    def _team_member_ids(self, current_user):
+        users = UserRepository(self.db).list_by_organization(current_user.organization_id)
+        return resolve_team_member_ids(users, current_user)
+
+    def _scoped_user_ids(self, current_user):
+        role_name = current_user.role.name if current_user.role else None
+        if role_name in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
+            return None
+        if role_name == MANAGER_ROLE:
+            return self._team_member_ids(current_user)
+        return {current_user.id}
+
+    def _assert_session_access(self, current_user, session) -> None:
+        assert_can_view_user_owned_record(
+            current_user,
+            session.user_id,
+            self._team_member_ids(current_user),
+        )
 
     def _user_permissions(self, current_user) -> set:
         role_name = getattr(getattr(current_user, "role", None), "name", None)
@@ -404,6 +434,7 @@ class VoiceService:
             session = self.repo.get_session(current_user.organization_id, session_id)
             if not session:
                 raise ValueError("Voice session not found")
+            self._assert_session_access(current_user, session)
 
         assistant_preference = session.assistant_preference if session else None
         intent = self.detect_intent(transcript, employee_id, assistant_role, assistant_preference)
@@ -505,6 +536,7 @@ class VoiceService:
         session = self.repo.get_session(current_user.organization_id, session_id)
         if not session:
             raise ValueError("Voice session not found")
+        self._assert_session_access(current_user, session)
         if session.status == "closed":
             return self.repo.serialize_session(
                 session,
@@ -515,7 +547,18 @@ class VoiceService:
         return self.repo.serialize_session(closed, count)
 
     def list_sessions(self, current_user, limit: int = 50) -> list:
-        sessions = self.repo.list_sessions(current_user.organization_id, current_user.id, limit)
+        org_id = current_user.organization_id
+        scoped_ids = self._scoped_user_ids(current_user)
+        if scoped_ids is None:
+            sessions = self.repo.list_sessions(org_id, user_id=None, limit=limit)
+        elif len(scoped_ids) == 1 and current_user.id in scoped_ids:
+            sessions = self.repo.list_sessions(org_id, user_id=current_user.id, limit=limit)
+        else:
+            sessions = [
+                session
+                for session in self.repo.list_sessions(org_id, user_id=None, limit=limit * 5)
+                if session.user_id in scoped_ids
+            ][:limit]
         return [
             self.repo.serialize_session(
                 session,
@@ -528,6 +571,7 @@ class VoiceService:
         session = self.repo.get_session(current_user.organization_id, session_id)
         if not session:
             raise ValueError("Voice session not found")
+        self._assert_session_access(current_user, session)
         interactions = [
             self.repo.serialize_interaction(record)
             for record in self.repo.list_interactions(
@@ -539,9 +583,23 @@ class VoiceService:
         return payload
 
     def list_interactions(self, current_user, limit: int = 100) -> list:
+        scoped_ids = self._scoped_user_ids(current_user)
+        records = self.repo.list_interactions(current_user.organization_id, limit=limit * 3 if scoped_ids else limit)
+        if scoped_ids is not None:
+            records = [
+                record
+                for record in records
+                if can_view_user_owned_record(
+                    current_user,
+                    record.created_by_user_id,
+                    scoped_ids,
+                )
+            ][:limit]
+        else:
+            records = records[:limit]
         return [
             self.repo.serialize_interaction(record)
-            for record in self.repo.list_interactions(current_user.organization_id, limit=limit)
+            for record in records
         ]
 
     def create_meeting(self, current_user, payload: dict, session_id: Optional[int] = None) -> dict:
@@ -592,13 +650,30 @@ class VoiceService:
         return self.repo.serialize_meeting(record)
 
     def list_meetings(self, current_user, limit: int = 50) -> list:
+        scoped_ids = self._scoped_user_ids(current_user)
+        records = self.repo.list_meetings(current_user.organization_id, limit * 3 if scoped_ids else limit)
+        if scoped_ids is not None:
+            records = [
+                record
+                for record in records
+                if can_view_user_owned_record(
+                    current_user,
+                    record.created_by_user_id,
+                    scoped_ids,
+                )
+            ][:limit]
+        else:
+            records = records[:limit]
         return [
             self.repo.serialize_meeting(record)
-            for record in self.repo.list_meetings(current_user.organization_id, limit)
+            for record in records
         ]
 
     def get_analytics(self, current_user) -> dict:
-        return self.repo.analytics(current_user.organization_id)
+        return self.repo.analytics(
+            current_user.organization_id,
+            user_ids=self._scoped_user_ids(current_user),
+        )
 
     # Backward-compatible wrapper used by OperationsService
     def voice_query(self, current_user, transcript: str, top_k: int = 5) -> dict:

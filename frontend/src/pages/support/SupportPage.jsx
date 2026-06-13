@@ -15,6 +15,8 @@ import {
   appLabel, appModalOverlay, appModal, appBadgeError, appBadgeActive, appBadgeWarning,
   appTabActive, appTabInactive, appSectionTitle, appEmpty,
 } from '../../styles/appStyles';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 
 const KANBAN_COLUMNS = ['New', 'In Progress', 'Resolved', 'Closed'];
 
@@ -48,6 +50,8 @@ function sentimentIcon(sentiment) {
 }
 
 export default function SupportPage() {
+  const { hasPermission } = useRbac();
+  const canManageSupport = hasPermission(PERMISSIONS.SUPPORT_MANAGE);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [tickets, setTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -417,6 +421,7 @@ export default function SupportPage() {
                 </div>
               </div>
 
+              {canManageSupport && (
               <div className="space-y-2">
                 <p className="text-xs font-bold text-[#1A1A14] uppercase tracking-wider flex items-center gap-1">
                   <UserPlus size={12} /> Assignment
@@ -443,6 +448,7 @@ export default function SupportPage() {
                   Save Assignment
                 </button>
               </div>
+              )}
 
               {selectedTicket.escalation_history?.length > 0 && (
                 <div className="space-y-1">
@@ -476,7 +482,7 @@ export default function SupportPage() {
                   {selectedTicket.aiRecommendation}
                 </div>
                 <div className="flex flex-wrap gap-2 justify-end">
-                  {!selectedTicket.escalated && (
+                  {canManageSupport && !selectedTicket.escalated && (
                     <button
                       type="button"
                       onClick={() => handleEscalate(selectedTicket.id)}
@@ -485,7 +491,7 @@ export default function SupportPage() {
                       Escalate
                     </button>
                   )}
-                  {selectedTicket.status !== 'Resolved' && selectedTicket.status !== 'Closed' && (
+                  {canManageSupport && selectedTicket.status !== 'Resolved' && selectedTicket.status !== 'Closed' && (
                     <button
                       type="button"
                       onClick={() => handleMoveStatus(selectedTicket.id, 'Resolved')}
@@ -498,6 +504,7 @@ export default function SupportPage() {
               </div>
             </div>
 
+            {canManageSupport && (
             <div className="p-4 border-t border-[#1A1A14]/10 bg-[#1A1A14]/[0.04] flex flex-col gap-2">
               <span className="text-xs font-bold text-[#6A6A60]">Status Actions</span>
               <div className="flex flex-wrap gap-1.5">
@@ -530,6 +537,7 @@ export default function SupportPage() {
                 )}
               </div>
             </div>
+            )}
           </div>
         )}
 

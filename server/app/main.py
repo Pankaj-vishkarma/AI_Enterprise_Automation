@@ -70,6 +70,20 @@ def create_app() -> FastAPI:
         logger.info("Starting app and creating DB tables if they do not exist")
 
         Base.metadata.create_all(bind=engine)
+
+        try:
+            from app.core.database import SessionLocal
+            from app.services.rbac_service import RbacService
+
+            db = SessionLocal()
+            try:
+                RbacService(db).ensure_rbac_defaults()
+                logger.info("RBAC defaults synchronized")
+            finally:
+                db.close()
+        except Exception:
+            logger.exception("Failed to synchronize RBAC defaults")
+
         # initialize redis if configured
         try:
             _ = get_redis()

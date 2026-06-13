@@ -4,11 +4,15 @@ import MainLayout from '../../components/layout/MainLayout';
 import { rolesAPI } from '../../api/roles';
 import { permissionsAPI } from '../../api/permissions';
 import { Plus, Edit, Trash2 } from 'lucide-react';
+import { useRbac } from '../../hooks/useRbac';
+import { ROLES } from '../../utils/rbac';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIconPrimary, orgBtnIconDanger, orgGlassCard, orgBadgePerm, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading } from './orgStyles';
 
 const emptyForm = { id: null, name: '', permission_ids: [] };
 
 export default function RolesPage({ isSubSection = false }) {
+  const { hasRole } = useRbac();
+  const canManageRoles = hasRole(ROLES.SUPER_ADMIN);
   const queryClient = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [isOpen, setIsOpen] = useState(false);
@@ -65,12 +69,14 @@ export default function RolesPage({ isSubSection = false }) {
         </div>
       )}
 
+      {canManageRoles && (
       <div className="flex justify-end">
         <button type="button" onClick={() => openForm()} className={orgBtnPrimary}>
           <Plus size={18} />
           Add Role
         </button>
       </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
         {isLoading ? (
@@ -85,6 +91,7 @@ export default function RolesPage({ isSubSection = false }) {
                   <h3 className="text-lg font-semibold text-[#1A1A14] truncate">{role.name}</h3>
                   <p className="text-sm text-[#6A6A60] mt-1">{role.permissions?.length || 0} permissions assigned</p>
                 </div>
+                {canManageRoles && (
                 <div className="flex gap-1 shrink-0">
                   <button type="button" onClick={() => openForm(role)} className={orgBtnIconPrimary} title="Edit role">
                     <Edit size={18} />
@@ -93,6 +100,7 @@ export default function RolesPage({ isSubSection = false }) {
                     <Trash2 size={18} />
                   </button>
                 </div>
+                )}
               </div>
               <div className="mt-4">
                 <p className="text-xs font-semibold text-[#6A6A60] mb-2 uppercase tracking-wider">Permissions</p>

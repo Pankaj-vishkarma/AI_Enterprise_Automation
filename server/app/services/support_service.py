@@ -14,6 +14,13 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.support import SUPPORT_CATEGORIES, SUPPORT_PRIORITIES
 from app.services.ai_employee_service import AIEmployeeService
 from app.services.rag_service import RAGService
+from app.core.dependencies import SUPPORT_MANAGE_PERMISSION, user_has_permission
+from app.utils.rbac_scope import (
+    can_manage_support_ticket,
+    can_view_support_ticket,
+    filter_support_tickets,
+    team_member_ids,
+)
 
 
 class SupportService:
@@ -117,6 +124,24 @@ class SupportService:
             "Thank you for contacting support. We have reviewed your request and will follow up shortly.",
         )
 
+    def _team_member_ids(self, current_user) -> set[int]:
+        if not current_user.team_id:
+            return set()
+        members = self.users.list_by_organization(current_user.organization_id)
+        return team_member_ids(
+            member for member in members if member.team_id == current_user.team_id
+        )
+
+    def _ensure_ticket_access(self, current_user, ticket: dict) -> None:
+        if not can_view_support_ticket(current_user, ticket, self._team_member_ids(current_user)):
+            raise PermissionError("You do not have access to this ticket")
+
+    def _ensure_ticket_manage(self, current_user, ticket: dict) -> None:
+        if not user_has_permission(current_user, SUPPORT_MANAGE_PERMISSION):
+            raise PermissionError("SUPPORT_MANAGE permission required")
+        if not can_manage_support_ticket(current_user, ticket, self._team_member_ids(current_user)):
+            raise PermissionError("You are not authorized to manage this ticket")
+
     def _find_support_assistant(self, organization_id: int):
         for employee in self.ai_repo.list(organization_id):
             if employee.is_active and employee.role == "Support Assistant":
@@ -166,13 +191,18 @@ class SupportService:
             tickets = [t for t in tickets if t["status"] == status]
         if category:
             tickets = [t for t in tickets if t["category"] == category]
-        return tickets
+        return filter_support_tickets(current_user, tickets, self._team_member_ids(current_user))
 
     def get_ticket(self, current_user, ticket_id: int) -> Optional[dict]:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
             return None
-        return self.serialize_ticket(record)
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_access(current_user, ticket)
+        except PermissionError:
+            return None
+        return ticket
 
     def create_ticket(self, current_user, payload: dict) -> dict:
         message = payload["message"]
@@ -232,6 +262,11 @@ class SupportService:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
             return None
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_manage(current_user, ticket)
+        except PermissionError:
+            return None
         data = json.loads(record.data_json or "{}")
         if payload.get("title") is not None:
             record.title = payload["title"]
@@ -257,6 +292,11 @@ class SupportService:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
             return None
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_manage(current_user, ticket)
+        except PermissionError as exc:
+            raise ValueError(str(exc)) from exc
         data = json.loads(record.data_json or "{}")
         label_parts = []
 
@@ -303,6 +343,11 @@ class SupportService:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
             return None
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_manage(current_user, ticket)
+        except PermissionError:
+            return None
         data = json.loads(record.data_json or "{}")
         history = data.get("escalation_history", [])
         history.append({
@@ -323,6 +368,11 @@ class SupportService:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
             return None
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_manage(current_user, ticket)
+        except PermissionError:
+            return None
         data = json.loads(record.data_json or "{}")
         record.status = "Closed"
         if not data.get("resolved_at"):
@@ -336,6 +386,11 @@ class SupportService:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
             return None
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_manage(current_user, ticket)
+        except PermissionError:
+            return None
         data = json.loads(record.data_json or "{}")
         record.status = "In Progress"
         data["reopened_at"] = self._now_iso()
@@ -348,6 +403,11 @@ class SupportService:
     def regenerate_recommendation(self, current_user, ticket_id: int) -> Optional[dict]:
         record = self.repo.get(current_user.organization_id, "support", ticket_id)
         if not record:
+            return None
+        ticket = self.serialize_ticket(record)
+        try:
+            self._ensure_ticket_access(current_user, ticket)
+        except PermissionError:
             return None
         data = json.loads(record.data_json or "{}")
         recommendation = self._build_recommendation(

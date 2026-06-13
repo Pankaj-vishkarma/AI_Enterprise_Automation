@@ -8,10 +8,16 @@ import {
   Plus, Trash2, Edit, BarChart3, History, Users, X, AlertTriangle,
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appCard, appCardPadding, appInputPlain, appBtnPrimary, appBtnGhost, appBtnIconPrimary, appBtnIconDanger, appTableWrap, appTr, appError, appEmpty, appTabActive, appTabInactive, appLabel, appModalOverlay, appBadgeActive, appBadgeWarning, appBadgeError, appBadgeInfo } from '../../styles/appStyles';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS, ROLES } from '../../utils/rbac';
 
 const emptyTeamForm = { id: null, name: '', description: '', memberIds: [] };
 
 export default function CollaborationPage() {
+  const { hasPermission, hasRole } = useRbac();
+  const canUseCollaboration = hasPermission(PERMISSIONS.COLLABORATION_USE);
+  const canManageTeams = hasPermission(PERMISSIONS.COLLABORATION_MANAGE)
+    || hasRole(ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.MANAGER);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('run');
   const [selectedTeamId, setSelectedTeamId] = useState(null);
@@ -259,6 +265,7 @@ export default function CollaborationPage() {
                     placeholder="Describe the collaboration objective..."
                     className={`flex-1 ${appInputPlain}`}
                   />
+                  {canUseCollaboration && (
                   <button
                     onClick={() => selectedTeamId && runMutation.mutate()}
                     disabled={runMutation.isPending || !prompt.trim() || !selectedTeamId}
@@ -267,6 +274,7 @@ export default function CollaborationPage() {
                     {runMutation.isPending ? <Loader className="animate-spin" size={16} /> : <Play size={16} />}
                     Run Team
                   </button>
+                  )}
                 </div>
               </div>
 
@@ -359,6 +367,7 @@ export default function CollaborationPage() {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h2 className={appSectionTitle}>Collaboration Teams</h2>
+              {canManageTeams && (
               <button
                 onClick={() => openTeamForm()}
                 className={appBtnPrimary}
@@ -366,6 +375,7 @@ export default function CollaborationPage() {
                 <Plus size={16} />
                 Create Team
               </button>
+              )}
             </div>
             {teams.length === 0 ? (
               <div className={`${appGlassCard} ${appEmpty}`}>
@@ -380,6 +390,7 @@ export default function CollaborationPage() {
                         <h3 className="font-bold text-[#1A1A14]">{team.name}</h3>
                         <p className="text-sm text-[#6A6A60] mt-1">{team.description || 'No description'}</p>
                       </div>
+                      {canManageTeams && (
                       <div className="flex gap-1">
                         <button onClick={() => openTeamForm(team)} className={appBtnIconPrimary}>
                           <Edit size={16} />
@@ -391,6 +402,7 @@ export default function CollaborationPage() {
                           <Trash2 size={16} />
                         </button>
                       </div>
+                      )}
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {(team.members || []).map((m, i) => (

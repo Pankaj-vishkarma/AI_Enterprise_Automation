@@ -4,6 +4,8 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import config from './config/env';
+import RoleRoute from './components/auth/RoleRoute';
+import LoadingSpinner from './components/auth/LoadingSpinner';
 
 // Auth Pages
 import LoginPage from './pages/auth/LoginPage';
@@ -51,14 +53,6 @@ import LandingPage from './pages/landing/LandingPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProfilePage from './pages/profile/ProfilePage';
 
-// Loading component
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center min-h-screen bg-[#F1F0E3]">
-    <div className="animate-spin rounded-full h-10 w-10 border-2 border-[#1A1A14]/10 border-t-[#1A1A14]" />
-  </div>
-);
-
-// Protected route wrapper
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
@@ -73,7 +67,6 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-// Public route wrapper
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
 
@@ -88,6 +81,12 @@ const PublicRoute = ({ children }) => {
   return children;
 };
 
+const GuardedRoute = ({ children }) => (
+  <ProtectedRoute>
+    <RoleRoute>{children}</RoleRoute>
+  </ProtectedRoute>
+);
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -98,69 +97,56 @@ const queryClient = new QueryClient({
 });
 
 function AppRoutes() {
+  const suspense = (Page) => (
+    <GuardedRoute>
+      <Suspense fallback={<LoadingSpinner />}>
+        <Page />
+      </Suspense>
+    </GuardedRoute>
+  );
+
   return (
     <Routes>
-      {/* Public routes */}
       <Route path="/login" element={<PublicRoute><Suspense fallback={<LoadingSpinner />}><LoginPage /></Suspense></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Suspense fallback={<LoadingSpinner />}><RegisterPage /></Suspense></PublicRoute>} />
       <Route path="/forgot-password" element={<PublicRoute><Suspense fallback={<LoadingSpinner />}><ForgotPasswordPage /></Suspense></PublicRoute>} />
       <Route path="/reset-password" element={<PublicRoute><Suspense fallback={<LoadingSpinner />}><ResetPasswordPage /></Suspense></PublicRoute>} />
 
-      {/* Protected routes */}
-      <Route path="/dashboard" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><DashboardPage /></Suspense></ProtectedRoute>} />
-      <Route path="/profile" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ProfilePage /></Suspense></ProtectedRoute>} />
+      <Route path="/dashboard" element={suspense(DashboardPage)} />
+      <Route path="/profile" element={suspense(ProfilePage)} />
 
-      {/* Organization Management */}
-      <Route path="/organization-management" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><OrganizationManagementPage /></Suspense></ProtectedRoute>} />
-      <Route path="/users" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><UsersPage /></Suspense></ProtectedRoute>} />
-      <Route path="/departments" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><DepartmentsPage /></Suspense></ProtectedRoute>} />
-      <Route path="/teams" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><TeamsPage /></Suspense></ProtectedRoute>} />
-      <Route path="/roles" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><RolesPage /></Suspense></ProtectedRoute>} />
-      <Route path="/permissions" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><PermissionsPage /></Suspense></ProtectedRoute>} />
+      <Route path="/organization-management" element={suspense(OrganizationManagementPage)} />
+      <Route path="/users" element={suspense(UsersPage)} />
+      <Route path="/departments" element={suspense(DepartmentsPage)} />
+      <Route path="/teams" element={suspense(TeamsPage)} />
+      <Route path="/roles" element={suspense(RolesPage)} />
+      <Route path="/permissions" element={suspense(PermissionsPage)} />
 
-      {/* Knowledge Platform */}
-      <Route path="/knowledge" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><DocumentsPage /></Suspense></ProtectedRoute>} />
-      <Route path="/knowledge/documents" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><DocumentsPage /></Suspense></ProtectedRoute>} />
-      <Route path="/knowledge/ask-ai" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><AskAIPage /></Suspense></ProtectedRoute>} />
+      <Route path="/knowledge" element={suspense(DocumentsPage)} />
+      <Route path="/knowledge/documents" element={suspense(DocumentsPage)} />
+      <Route path="/knowledge/ask-ai" element={suspense(AskAIPage)} />
 
-      {/* Conversations */}
-      <Route path="/conversations" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ConversationsPage /></Suspense></ProtectedRoute>} />
+      <Route path="/conversations" element={suspense(ConversationsPage)} />
 
-      {/* AI Employee Studio */}
-      <Route path="/employees" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><EmployeesPage /></Suspense></ProtectedRoute>} />
-      <Route path="/employees/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><EmployeeDetailPage /></Suspense></ProtectedRoute>} />
+      <Route path="/employees" element={suspense(EmployeesPage)} />
+      <Route path="/employees/:id" element={suspense(EmployeeDetailPage)} />
 
-      {/* Multi-Agent Collaboration */}
-      <Route path="/collaboration" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><CollaborationPage /></Suspense></ProtectedRoute>} />
+      <Route path="/collaboration" element={suspense(CollaborationPage)} />
+      <Route path="/workflows" element={suspense(WorkflowsPage)} />
+      <Route path="/workflows/instances/:id" element={suspense(WorkflowInstancePage)} />
 
-      {/* Workflow Automation */}
-      <Route path="/workflows" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><WorkflowsPage /></Suspense></ProtectedRoute>} />
-      <Route path="/workflows/instances/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><WorkflowInstancePage /></Suspense></ProtectedRoute>} />
+      <Route path="/research" element={suspense(ResearchPage)} />
+      <Route path="/research/:id" element={suspense(ResearchReportPage)} />
 
-      {/* Business Research Hub */}
-      <Route path="/research" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ResearchPage /></Suspense></ProtectedRoute>} />
-      <Route path="/research/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><ResearchReportPage /></Suspense></ProtectedRoute>} />
+      <Route path="/browser-automation" element={suspense(BrowserAutomationPage)} />
+      <Route path="/browser-automation/:id" element={suspense(BrowserTaskPage)} />
 
-      {/* Browser Automation */}
-      <Route path="/browser-automation" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><BrowserAutomationPage /></Suspense></ProtectedRoute>} />
-      <Route path="/browser-automation/:id" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><BrowserTaskPage /></Suspense></ProtectedRoute>} />
+      <Route path="/voice-ai" element={suspense(VoicePage)} />
+      <Route path="/support" element={suspense(SupportPage)} />
+      <Route path="/omnichannel" element={suspense(OmnichannelPage)} />
+      <Route path="/analytics" element={suspense(AnalyticsPage)} />
 
-      {/* Voice AI Platform */}
-      <Route path="/voice-ai" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><VoicePage /></Suspense></ProtectedRoute>} />
-
-      {/* Customer Support Platform */}
-      <Route path="/support" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><SupportPage /></Suspense></ProtectedRoute>} />
-
-      {/* Omnichannel Communication Center */}
-      <Route path="/omnichannel" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><OmnichannelPage /></Suspense></ProtectedRoute>} />
-
-      {/* Analytics & Reporting */}
-      <Route path="/analytics" element={<ProtectedRoute><Suspense fallback={<LoadingSpinner />}><AnalyticsPage /></Suspense></ProtectedRoute>} />
-
-      {/* Landing */}
       <Route path="/" element={<LandingPage />} />
-
-      {/* Catch all */}
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

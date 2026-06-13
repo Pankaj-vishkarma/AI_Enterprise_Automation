@@ -1,45 +1,18 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import {
-  LayoutDashboard,
-  Users,
-  BookOpen,
-  ChevronLeft,
-  ChevronRight,
-  Bot,
-  GitMerge,
-  Layers,
-  Compass,
-  Globe,
-  Mic,
-  LifeBuoy,
-  MessageCircle,
-  BarChart3,
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import BrandLogo from '../../pages/landing/components/ui/BrandLogo';
 import { BRAND } from '../../pages/landing/constants';
-
-const menuItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/organization-management', label: 'Organization & User Management', icon: Users },
-  { path: '/knowledge', label: 'Knowledge Intelligence Platform', icon: BookOpen },
-  { path: '/employees', label: 'AI Employee Studio', icon: Bot },
-  { path: '/collaboration', label: 'Multi-Agent Collaboration', icon: GitMerge },
-  { path: '/workflows', label: 'Workflow Automation Platform', icon: Layers },
-  { path: '/research', label: 'Business Research Hub', icon: Compass },
-  { path: '/browser-automation', label: 'Browser Automation Hub', icon: Globe },
-  { path: '/voice-ai', label: 'Voice AI Platform', icon: Mic },
-  { path: '/support', label: 'Customer Support Platform', icon: LifeBuoy },
-  { path: '/omnichannel', label: 'Omnichannel Communication Center', icon: MessageCircle },
-  { path: '/analytics', label: 'Analytics & Reporting', icon: BarChart3 },
-];
+import { useAuth } from '../../context/AuthContext';
+import { getSidebarItems } from '../../utils/rbac';
 
 export default function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
+  const { user } = useAuth();
+  const menuItems = getSidebarItems(user?.role);
 
   return (
     <div className="h-full flex flex-col bg-[#F1F0E3] border-r border-[#1A1A14]/[0.08]">
-      {/* Logo area */}
       <div
         className={`shrink-0 h-16 border-b border-[#1A1A14]/[0.08] flex items-center ${
           isOpen ? 'justify-between px-4' : 'justify-center px-2'
@@ -80,11 +53,10 @@ export default function Sidebar({ isOpen, onToggle }) {
         </div>
       )}
 
-      {/* Navigation */}
       <nav className="flex-1 min-h-0 px-2.5 py-3 space-y-0.5 overflow-y-auto overflow-x-hidden scrollbar-thin">
         {menuItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
 
           return (
             <Link

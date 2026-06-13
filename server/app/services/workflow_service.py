@@ -14,6 +14,12 @@ from app.repositories.workflow_repository import WorkflowRepository
 from app.schemas.workflow import WORKFLOW_TEMPLATES
 from app.services.ai_employee_service import AIEmployeeService
 from app.services.notification_service import NotificationService
+from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import (
+    assert_can_view_user_owned_record,
+    filter_user_owned_records,
+    resolve_team_member_ids,
+)
 
 
 class WorkflowService:
@@ -22,6 +28,17 @@ class WorkflowService:
         self.repo = WorkflowRepository(db)
         self.notifications = NotificationService(db)
         self.ai_employees = AIEmployeeService(db)
+
+    def _team_member_ids(self, current_user):
+        users = UserRepository(self.db).list_by_organization(current_user.organization_id)
+        return resolve_team_member_ids(users, current_user)
+
+    def _assert_instance_access(self, current_user, instance) -> None:
+        assert_can_view_user_owned_record(
+            current_user,
+            instance.started_by_user_id,
+            self._team_member_ids(current_user),
+        )
 
     def _assert_manage(self, current_user):
         role_name = current_user.role.name if current_user.role else None
@@ -77,12 +94,20 @@ class WorkflowService:
 
     def list_instances(self, current_user, limit: int = 50, offset: int = 0):
         instances = self.repo.list_instances(current_user.organization_id, limit, offset)
+        members = self._team_member_ids(current_user)
+        instances = filter_user_owned_records(
+            current_user,
+            instances,
+            owner_attr="started_by_user_id",
+            member_ids=members,
+        )
         return [self._serialize_instance(inst) for inst in instances]
 
     def get_instance(self, current_user, instance_id: int):
         instance = self.repo.get_instance(current_user.organization_id, instance_id)
         if not instance:
             return None
+        self._assert_instance_access(current_user, instance)
         return self._serialize_instance(instance)
 
     def start_instance(self, current_user, workflow_id: int, title: str):
@@ -115,6 +140,7 @@ class WorkflowService:
         instance = self.repo.get_instance(current_user.organization_id, instance_id)
         if not instance:
             return None
+        self._assert_instance_access(current_user, instance)
         step = self._get_step(instance, step_id)
         if not step or step.status != "pending":
             raise ValueError("Step is not pending")
@@ -150,6 +176,7 @@ class WorkflowService:
         instance = self.repo.get_instance(current_user.organization_id, instance_id)
         if not instance:
             return None
+        self._assert_instance_access(current_user, instance)
         role_name = current_user.role.name if current_user.role else None
         if (
             instance.started_by_user_id != current_user.id
@@ -190,6 +217,7 @@ class WorkflowService:
         instance = self.repo.get_instance(current_user.organization_id, instance_id)
         if not instance:
             return None
+        self._assert_instance_access(current_user, instance)
         if instance.status not in {"in_progress", "approved"}:
             raise ValueError("Workflow instance is not actionable")
         step = self._get_step(instance, step_id)

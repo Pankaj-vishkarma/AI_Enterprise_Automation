@@ -8,8 +8,13 @@ import {
   Ban, MessageSquare,
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appBtnPrimary, appError, appEmpty, appBadgeActive, appBadgeWarning, appBadgeInfo, appBadgeError } from '../../styles/appStyles';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 
 export default function WorkflowInstancePage() {
+  const { hasPermission } = useRbac();
+  const canApproveWorkflow = hasPermission(PERMISSIONS.WORKFLOW_APPROVE);
+  const canUseWorkflows = hasPermission(PERMISSIONS.WORKFLOW_USE);
   const { id } = useParams();
   const queryClient = useQueryClient();
   const [comment, setComment] = useState('');
@@ -133,7 +138,7 @@ export default function WorkflowInstancePage() {
                   {step.ai_output && (
                     <p className="text-xs text-[#1A1A14] bg-white/50 border border-[#1A1A14]/10 p-2 rounded-xl whitespace-pre-wrap">{step.ai_output}</p>
                   )}
-                  {step.status === 'pending' && instance.status === 'in_progress' && (
+                  {step.status === 'pending' && instance.status === 'in_progress' && canApproveWorkflow && (
                     <div className="flex gap-2 pt-2">
                       <input
                         value={comment}
@@ -163,7 +168,7 @@ export default function WorkflowInstancePage() {
           </div>
         </div>
 
-        {instance.status === 'in_progress' && (
+        {instance.status === 'in_progress' && canUseWorkflows && (
           <button
             onClick={() => window.confirm('Cancel this workflow?') && cancelMutation.mutate()}
             className="text-sm text-red-600 hover:underline flex items-center gap-1"

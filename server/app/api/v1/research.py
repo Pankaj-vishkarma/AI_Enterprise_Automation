@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import require_permission, RESEARCH_ACCESS_PERMISSION
 from app.schemas.research import ResearchMetrics, ResearchReportResponse, ResearchRunRequest
 from app.services.research_service import ResearchService
 
@@ -12,12 +12,12 @@ router = APIRouter(prefix="/api/v1/research", tags=["research"])
 
 
 @router.get("/templates")
-def get_templates(current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def get_templates(current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)), db: Session = Depends(get_db)):
     return ResearchService(db).get_templates()
 
 
 @router.get("/metrics", response_model=ResearchMetrics)
-def get_metrics(current_user=Depends(get_current_active_user), db: Session = Depends(get_db)):
+def get_metrics(current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)), db: Session = Depends(get_db)):
     return ResearchService(db).get_metrics(current_user)
 
 
@@ -25,7 +25,7 @@ def get_metrics(current_user=Depends(get_current_active_user), db: Session = Dep
 def list_reports(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)),
     db: Session = Depends(get_db),
 ):
     return ResearchService(db).list_reports(current_user, limit=limit, offset=offset)
@@ -34,7 +34,7 @@ def list_reports(
 @router.post("/run", response_model=ResearchReportResponse)
 def run_research(
     payload: ResearchRunRequest,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)),
     db: Session = Depends(get_db),
 ):
     return ResearchService(db).run_research(
@@ -49,10 +49,13 @@ def run_research(
 @router.get("/{report_id}", response_model=ResearchReportResponse)
 def get_report(
     report_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)),
     db: Session = Depends(get_db),
 ):
-    result = ResearchService(db).get_report(current_user, report_id)
+    try:
+        result = ResearchService(db).get_report(current_user, report_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
     return result
@@ -61,10 +64,13 @@ def get_report(
 @router.delete("/{report_id}")
 def delete_report(
     report_id: int,
-    current_user=Depends(get_current_active_user),
+    current_user=Depends(require_permission(RESEARCH_ACCESS_PERMISSION)),
     db: Session = Depends(get_db),
 ):
-    result = ResearchService(db).delete_report(current_user, report_id)
+    try:
+        result = ResearchService(db).delete_report(current_user, report_id)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
     return result

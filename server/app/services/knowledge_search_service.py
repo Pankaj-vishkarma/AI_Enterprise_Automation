@@ -5,6 +5,8 @@ from app.repositories.knowledge_document_chunk_repository import (
     KnowledgeDocumentChunkRepository,
 )
 from app.repositories.knowledge_query_repository import KnowledgeQueryRepository
+from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import filter_user_owned_records, resolve_team_member_ids
 
 
 class KnowledgeSearchService:
@@ -67,4 +69,12 @@ class KnowledgeSearchService:
         return query, top_chunks
 
     def list_history(self, current_user):
-        return self.query_repo.list_by_organization(current_user.organization_id)
+        queries = self.query_repo.list_by_organization(current_user.organization_id)
+        users = UserRepository(self.db).list_by_organization(current_user.organization_id)
+        member_ids = resolve_team_member_ids(users, current_user)
+        return filter_user_owned_records(
+            current_user,
+            queries,
+            owner_attr="user_id",
+            member_ids=member_ids,
+        )

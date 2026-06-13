@@ -101,3 +101,4 @@ class UserProfileResponse(BaseModel):
     is_active: bool
     created_at: datetime | None = None
     last_login: datetime | None = None
+    permissions: list[str] = []

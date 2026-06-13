@@ -3,11 +3,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, Power } from 'lucide-react';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
 
 const emptyForm = { id: null, name: '', description: '' };
 
 export default function TeamsPage({ isSubSection = false }) {
+  const { hasPermission } = useRbac();
+  const canManageTeams = hasPermission(PERMISSIONS.MANAGE_TEAMS);
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
@@ -61,10 +65,12 @@ export default function TeamsPage({ isSubSection = false }) {
             <input type="text" placeholder="Search teams..." value={searchTerm} onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }} className={orgInputWithIcon} />
           </div>
         </div>
-        <button type="button" onClick={() => openForm()} className={orgBtnPrimary}>
-          <Plus size={18} />
-          Add Team
-        </button>
+        {canManageTeams && (
+          <button type="button" onClick={() => openForm()} className={orgBtnPrimary}>
+            <Plus size={18} />
+            Add Team
+          </button>
+        )}
       </div>
 
       <div className={orgTableWrap}>
@@ -89,10 +95,14 @@ export default function TeamsPage({ isSubSection = false }) {
                         <span className={team.is_active ? orgBadgeActive : orgBadgeInactive}>{team.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
                       <td className={orgTd}>
+                        {canManageTeams ? (
                         <div className="flex items-center justify-center gap-1">
                           <button type="button" onClick={() => openForm(team)} className={orgBtnIconPrimary} title="Edit team"><Edit size={18} /></button>
                           <button type="button" onClick={() => statusMutation.mutate({ id: team.id, active: !team.is_active })} className={orgBtnIcon} title={team.is_active ? 'Disable team' : 'Enable team'}><Power size={18} /></button>
                         </div>
+                        ) : (
+                          <span className={orgTdMuted}>—</span>
+                        )}
                       </td>
                     </tr>
                   ))}

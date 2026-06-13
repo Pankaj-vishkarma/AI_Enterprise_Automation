@@ -15,6 +15,12 @@ from app.services.notification_service import NotificationService
 from app.services.omnichannel.provider_registry import OMNICHANNEL_CHANNELS, get_provider
 from app.services.rag_service import RAGService
 from app.services.support_service import SupportService
+from app.core.dependencies import OMNICHANNEL_MANAGE_PERMISSION, user_has_permission
+from app.utils.rbac_scope import (
+    can_view_omnichannel_conversation,
+    filter_omnichannel_conversations,
+    team_member_ids,
+)
 
 
 class OmnichannelService:
@@ -47,6 +53,28 @@ class OmnichannelService:
             if employee.is_active and employee.role == "Support Assistant":
                 return employee
         return None
+
+    def _team_member_ids(self, current_user) -> set[int]:
+        if not current_user.team_id:
+            return set()
+        members = self.users.list_by_organization(current_user.organization_id)
+        return team_member_ids(
+            member for member in members if member.team_id == current_user.team_id
+        )
+
+    def _ensure_conversation_access(self, current_user, conversation: dict) -> None:
+        if not can_view_omnichannel_conversation(
+            current_user, conversation, self._team_member_ids(current_user)
+        ):
+            raise PermissionError("You do not have access to this conversation")
+
+    def _ensure_conversation_manage(self, current_user, conversation: dict) -> None:
+        if not user_has_permission(current_user, OMNICHANNEL_MANAGE_PERMISSION):
+            raise PermissionError("OMNICHANNEL_MANAGE permission required")
+        if not can_view_omnichannel_conversation(
+            current_user, conversation, self._team_member_ids(current_user)
+        ):
+            raise PermissionError("You are not authorized to manage this conversation")
 
     def _build_shared_context(self, current_user, conversation_text: str) -> str:
         try:
@@ -133,15 +161,25 @@ class OmnichannelService:
         status: Optional[str] = None,
     ) -> List[dict]:
         convs = self.repo.list_conversations(current_user.organization_id, channel, status)
-        return [self.serialize_conversation(c) for c in convs]
+        conversations = [self.serialize_conversation(c) for c in convs]
+        return filter_omnichannel_conversations(
+            current_user, conversations, self._team_member_ids(current_user)
+        )
 
     def get_conversation(self, current_user, conversation_id: int) -> Optional[dict]:
         conv = self.repo.get_conversation(current_user.organization_id, conversation_id)
         if not conv:
             return None
-        return self.serialize_conversation(conv, include_messages=True)
+        conversation = self.serialize_conversation(conv, include_messages=True)
+        try:
+            self._ensure_conversation_access(current_user, conversation)
+        except PermissionError:
+            return None
+        return conversation
 
     def create_conversation(self, current_user, payload: dict) -> dict:
+        if not user_has_permission(current_user, OMNICHANNEL_MANAGE_PERMISSION):
+            raise PermissionError("OMNICHANNEL_MANAGE permission required")
         channel = payload.get("channel", "Website Chat")
         if channel not in OMNICHANNEL_CHANNELS:
             raise ValueError(f"Unsupported channel: {channel}")
@@ -187,6 +225,11 @@ class OmnichannelService:
         conv = self.repo.get_conversation(current_user.organization_id, conversation_id)
         if not conv:
             return None
+        conversation = self.serialize_conversation(conv)
+        try:
+            self._ensure_conversation_manage(current_user, conversation)
+        except PermissionError:
+            return None
         self.repo.update_conversation(conv, payload)
         conv = self.repo.get_conversation(current_user.organization_id, conversation_id)
         return self.serialize_conversation(conv, include_messages=True)
@@ -200,6 +243,12 @@ class OmnichannelService:
     ) -> Optional[dict]:
         conv = self.repo.get_conversation(current_user.organization_id, conversation_id)
         if not conv:
+            return None
+
+        conversation = self.serialize_conversation(conv)
+        try:
+            self._ensure_conversation_access(current_user, conversation)
+        except PermissionError:
             return None
 
         sender_type = payload.get("sender_type", "human")
@@ -252,6 +301,11 @@ class OmnichannelService:
         conv = self.repo.get_conversation(current_user.organization_id, conversation_id)
         if not conv:
             return None
+        conversation = self.serialize_conversation(conv)
+        try:
+            self._ensure_conversation_manage(current_user, conversation)
+        except PermissionError as exc:
+            raise ValueError(str(exc)) from exc
 
         history = json.loads(conv.handoff_history_json or "[]")
         history.append({
@@ -322,6 +376,11 @@ class OmnichannelService:
     def return_to_ai(self, current_user, conversation_id: int) -> Optional[dict]:
         conv = self.repo.get_conversation(current_user.organization_id, conversation_id)
         if not conv:
+            return None
+        conversation = self.serialize_conversation(conv)
+        try:
+            self._ensure_conversation_manage(current_user, conversation)
+        except PermissionError:
             return None
 
         history = json.loads(conv.handoff_history_json or "[]")

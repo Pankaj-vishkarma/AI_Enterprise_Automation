@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -13,10 +13,19 @@ router = APIRouter(prefix="/api/v1/organizations", tags=["organizations"])
 
 @router.get("", response_model=List[OrganizationResponse])
 def list_organizations(
+    limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    search: Optional[str] = Query(default=None),
+    status: Optional[str] = Query(default=None),
     current_user=Depends(require_super_admin),
     db: Session = Depends(get_db),
 ):
-    return OrganizationService(db).list_organizations()
+    return OrganizationService(db).list_organizations(
+        limit=limit,
+        offset=offset,
+        search=search,
+        status=status,
+    )
 
 
 @router.get("/{organization_id}", response_model=OrganizationResponse)

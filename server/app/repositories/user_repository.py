@@ -1,6 +1,7 @@
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Query, Session
 
 from app.models.user import User
 
@@ -21,6 +22,8 @@ class UserRepository:
         password_hash: str,
         organization_id: int,
         role_id: int,
+        department_id: Optional[int] = None,
+        team_id: Optional[int] = None,
     ):
 
         user = User(
@@ -30,16 +33,75 @@ class UserRepository:
             password_hash=password_hash,
             organization_id=organization_id,
             role_id=role_id,
+            department_id=department_id,
+            team_id=team_id,
         )
 
         self.db.add(user)
         self.db.commit()
-        self.db.refresh(user)
-
         return user
 
     def get_by_id(self, user_id: int):
         return self.db.query(User).filter(User.id == user_id).first()
+
+    def _scoped_query(
+        self,
+        *,
+        organization_id: Optional[int] = None,
+        user_ids: Optional[Set[int]] = None,
+        team_id: Optional[int] = None,
+        employee_role_id: Optional[int] = None,
+        include_user_id: Optional[int] = None,
+    ) -> Query:
+        query = self.db.query(User)
+
+        if organization_id is not None:
+            query = query.filter(User.organization_id == organization_id)
+
+        if user_ids is not None:
+            query = query.filter(User.id.in_(user_ids))
+
+        if team_id is not None and employee_role_id is not None and include_user_id is not None:
+            query = query.filter(
+                or_(
+                    User.id == include_user_id,
+                    and_(
+                        User.team_id == team_id,
+                        User.role_id == employee_role_id,
+                    ),
+                )
+            )
+        elif include_user_id is not None and team_id is None and employee_role_id is None:
+            query = query.filter(User.id == include_user_id)
+
+        return query
+
+    def list_paginated(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        organization_id: Optional[int] = None,
+        user_ids: Optional[Set[int]] = None,
+        team_id: Optional[int] = None,
+        employee_role_id: Optional[int] = None,
+        include_user_id: Optional[int] = None,
+    ) -> Tuple[list, int]:
+        base = self._scoped_query(
+            organization_id=organization_id,
+            user_ids=user_ids,
+            team_id=team_id,
+            employee_role_id=employee_role_id,
+            include_user_id=include_user_id,
+        )
+        total = base.with_entities(func.count(User.id)).scalar() or 0
+        rows = (
+            base.order_by(User.id.asc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return rows, int(total)
 
     def list_all(self):
         return self.db.query(User).order_by(User.id.asc()).all()
@@ -134,8 +196,10 @@ class UserRepository:
         self,
         user_id: int,
         department_id: Optional[int],
+        user: User | None = None,
     ):
-        user = self.get_by_id(user_id)
+        if user is None:
+            user = self.get_by_id(user_id)
 
         if not user:
             return None
@@ -143,16 +207,16 @@ class UserRepository:
         user.department_id = department_id
 
         self.db.commit()
-        self.db.refresh(user)
-
         return user
 
     def update_team_id(
         self,
         user_id: int,
         team_id: Optional[int],
+        user: User | None = None,
     ):
-        user = self.get_by_id(user_id)
+        if user is None:
+            user = self.get_by_id(user_id)
 
         if not user:
             return None
@@ -160,8 +224,6 @@ class UserRepository:
         user.team_id = team_id
 
         self.db.commit()
-        self.db.refresh(user)
-
         return user
 
     def update_role_id(

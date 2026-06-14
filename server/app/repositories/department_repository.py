@@ -1,6 +1,10 @@
+from typing import List, Optional, Tuple
+
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.department import Department
+from app.models.user import User
 
 
 class DepartmentRepository:
@@ -56,6 +60,51 @@ class DepartmentRepository:
             .order_by(Department.id.asc())
             .all()
         )
+
+    def list_paginated(
+        self,
+        organization_id: int,
+        limit: int,
+        offset: int,
+        department_ids: Optional[List[int]] = None,
+    ) -> Tuple[list, int]:
+        query = self.db.query(Department).filter(
+            Department.organization_id == organization_id
+        )
+        if department_ids is not None:
+            if not department_ids:
+                return [], 0
+            query = query.filter(Department.id.in_(department_ids))
+
+        total = query.with_entities(func.count(Department.id)).scalar() or 0
+        rows = (
+            query.order_by(Department.id.asc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return rows, int(total)
+
+    def list_department_ids_for_team(
+        self,
+        organization_id: int,
+        team_id: int,
+        include_department_id: int | None = None,
+    ) -> List[int]:
+        rows = (
+            self.db.query(User.department_id)
+            .filter(
+                User.organization_id == organization_id,
+                User.team_id == team_id,
+                User.department_id.isnot(None),
+            )
+            .distinct()
+            .all()
+        )
+        ids = {row[0] for row in rows}
+        if include_department_id is not None:
+            ids.add(include_department_id)
+        return sorted(ids)
 
     def update(
         self,

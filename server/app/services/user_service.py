@@ -11,7 +11,7 @@ from app.repositories.department_repository import DepartmentRepository
 from app.repositories.role_repository import RoleRepository
 from app.repositories.team_repository import TeamRepository
 from app.repositories.user_repository import UserRepository
-from app.utils.rbac_scope import assert_can_view_user_profile, can_view_user_profile
+from app.utils.rbac_scope import assert_can_view_user_profile
 
 
 class UserService:
@@ -31,33 +31,50 @@ class UserService:
 
         return role
 
-    def list_visible_users(self, current_user, limit: int | None = None, offset: int = 0):
+    def list_visible_users(
+        self,
+        current_user,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list, int]:
         role_name = current_user.role.name if current_user.role else None
 
         if role_name == SUPER_ADMIN_ROLE:
-            users = self.user_repo.list_all()
-        elif role_name == ORG_ADMIN_ROLE:
-            users = self.user_repo.list_by_organization(current_user.organization_id)
-        elif role_name == MANAGER_ROLE:
-            employee_role = self._role_by_name(EMPLOYEE_ROLE)
-            employees = self.user_repo.list_by_organization_and_roles(
-                current_user.organization_id,
-                [employee_role.id],
-            )
-            visible = [
-                user
-                for user in employees
-                if can_view_user_profile(current_user, user)
-            ]
-            if current_user.id not in {user.id for user in visible}:
-                visible.insert(0, current_user)
-            users = visible
-        else:
-            users = [current_user]
+            return self.user_repo.list_paginated(limit=limit, offset=offset)
 
-        if limit is not None:
-            return users[offset : offset + limit]
-        return users
+        if role_name == ORG_ADMIN_ROLE:
+            return self.user_repo.list_paginated(
+                limit=limit,
+                offset=offset,
+                organization_id=current_user.organization_id,
+            )
+
+        if role_name == MANAGER_ROLE:
+            if not current_user.team_id:
+                if current_user.id:
+                    rows, total = self.user_repo.list_paginated(
+                        limit=limit,
+                        offset=offset,
+                        include_user_id=current_user.id,
+                    )
+                    return rows, total
+                return [], 0
+
+            employee_role = self._role_by_name(EMPLOYEE_ROLE)
+            return self.user_repo.list_paginated(
+                limit=limit,
+                offset=offset,
+                organization_id=current_user.organization_id,
+                team_id=current_user.team_id,
+                employee_role_id=employee_role.id,
+                include_user_id=current_user.id,
+            )
+
+        return self.user_repo.list_paginated(
+            limit=limit,
+            offset=offset,
+            include_user_id=current_user.id,
+        )
 
     def create_user_for_org(
         self,
@@ -68,6 +85,8 @@ class UserService:
         last_name: str | None,
         email: str,
         password: str,
+        department_id: int | None = None,
+        team_id: int | None = None,
     ):
         existing_user = self.user_repo.get_by_email(email)
 
@@ -84,7 +103,67 @@ class UserService:
             password_hash=password_hash,
             organization_id=organization_id,
             role_id=role.id,
+            department_id=department_id,
+            team_id=team_id,
         )
+
+    def _validate_department_assignment(
+        self,
+        current_user,
+        organization_id: int,
+        department_id: int,
+    ):
+        department = self.department_repo.get_by_id(department_id)
+
+        if not department:
+            raise ValueError("Department not found")
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and department.organization_id != organization_id
+        ):
+            raise PermissionError(
+                "Cross-organization department assignment is not allowed"
+            )
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and department.organization_id != current_user.organization_id
+        ):
+            raise PermissionError(
+                "Cross-organization department assignment is not allowed"
+            )
+
+        return department
+
+    def _validate_team_assignment(
+        self,
+        current_user,
+        organization_id: int,
+        team_id: int,
+    ):
+        team = self.team_repo.get_by_id(team_id)
+
+        if not team:
+            raise ValueError("Team not found")
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and team.organization_id != organization_id
+        ):
+            raise PermissionError("Cross-organization team assignment is not allowed")
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and team.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization team assignment is not allowed")
+
+        return team
 
     def create_user_with_role(
         self,
@@ -108,24 +187,38 @@ class UserService:
         if role.name == SUPER_ADMIN_ROLE and current_role != SUPER_ADMIN_ROLE:
             raise PermissionError("Only SUPER_ADMIN can create SUPER_ADMIN users")
 
-        user = self.create_user_for_org(
-            organization_id=current_user.organization_id,
-            role_name=role.name,
+        organization_id = current_user.organization_id
+
+        existing_user = self.user_repo.get_by_email(email)
+        if existing_user:
+            raise ValueError("Email already registered")
+
+        if department_id is not None:
+            self._validate_department_assignment(
+                current_user,
+                organization_id,
+                department_id,
+            )
+
+        if team_id is not None:
+            self._validate_team_assignment(
+                current_user,
+                organization_id,
+                team_id,
+            )
+
+        password_hash = hash_password(password)
+
+        return self.user_repo.create(
             first_name=first_name,
             last_name=last_name,
             email=email,
-            password=password,
+            password_hash=password_hash,
+            organization_id=organization_id,
+            role_id=role.id,
+            department_id=department_id,
+            team_id=team_id,
         )
-
-        if department_id is not None:
-            user = self.assign_user_to_department(current_user, user.id, department_id)
-            if not user:
-                raise ValueError("Department not found")
-        if team_id is not None:
-            user = self.assign_user_to_team(current_user, user.id, team_id)
-            if not user:
-                raise ValueError("Team not found")
-        return user
 
     def disable_user(self, current_user, target_user_id: int):
         target_user = self.user_repo.get_by_id(target_user_id)
@@ -262,6 +355,7 @@ class UserService:
         return self.user_repo.update_department_id(
             target_user_id,
             department_id,
+            user=target_user,
         )
 
     def assign_user_to_team(
@@ -297,4 +391,5 @@ class UserService:
         return self.user_repo.update_team_id(
             target_user_id,
             team_id,
+            user=target_user,
         )

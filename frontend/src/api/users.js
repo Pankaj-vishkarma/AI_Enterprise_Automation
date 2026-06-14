@@ -1,8 +1,20 @@
 import client from './client';
+import { parsePaginatedResponse } from '../utils/pagination';
+
+async function listUsers(params) {
+  const response = await client.get('/api/v1/users', { params });
+  const page = parsePaginatedResponse(response);
+  return {
+    ...response,
+    data: page.items,
+    total: page.total,
+    limit: page.limit,
+    offset: page.offset,
+  };
+}
 
 export const usersAPI = {
-  list: (params) =>
-    client.get('/api/v1/users', { params }),
+  list: listUsers,
 
   get: (id) =>
     client.get(`/api/v1/users/${id}`),
@@ -32,5 +44,5 @@ export const usersAPI = {
     client.patch(`/api/v1/users/${id}/role`, { role_id: roleId }),
 
   search: (query, params) =>
-    client.get('/api/v1/users', { params: { ...params, q: query } }),
+    listUsers({ ...params, q: query }),
 };

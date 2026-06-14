@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -12,11 +10,13 @@ from app.core.dependencies import (
     MANAGE_USER_ASSIGNMENTS_PERMISSION,
     MANAGE_USER_ROLES_PERMISSION,
 )
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.user_management import (
     AssignUserDepartmentRequest,
     AssignUserTeamRequest,
     ManagedUserCreate,
     UserAssignmentResponse,
+    UserListOut,
     UserOut,
     UserUpdate,
 )
@@ -39,7 +39,7 @@ def _serialize_user(user):
     }
 
 
-@router.get("", response_model=List[UserOut])
+@router.get("", response_model=PaginatedResponse[UserListOut])
 def list_users(
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -47,7 +47,13 @@ def list_users(
     db: Session = Depends(get_db),
 ):
     service = UserService(db)
-    return service.list_visible_users(current_user, limit=limit, offset=offset)
+    rows, total = service.list_visible_users(current_user, limit=limit, offset=offset)
+    return PaginatedResponse[UserListOut](
+        items=rows,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post("", response_model=UserOut)

@@ -9,7 +9,6 @@ from app.core.dependencies import (
 from app.repositories.department_repository import DepartmentRepository
 from app.repositories.organization_repository import OrganizationRepository
 from app.repositories.user_repository import UserRepository
-from app.utils.rbac_scope import resolve_team_member_ids
 
 
 class DepartmentService:
@@ -20,46 +19,56 @@ class DepartmentService:
         self.organization_repo = OrganizationRepository(db)
         self.user_repo = UserRepository(db)
 
-    def list_departments(self, current_user):
-        all_departments = self.department_repo.list_by_organization(
-            current_user.organization_id
-        )
+    def _manager_department_ids(self, current_user) -> list[int] | None:
         role_name = current_user.role.name
 
+        if role_name != MANAGER_ROLE:
+            return None
+
+        if not current_user.team_id:
+            if current_user.department_id:
+                return [current_user.department_id]
+            return []
+
+        return self.department_repo.list_department_ids_for_team(
+            current_user.organization_id,
+            current_user.team_id,
+            include_department_id=current_user.department_id,
+        )
+
+    def list_departments(
+        self,
+        current_user,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list, int]:
+        role_name = current_user.role.name
+        organization_id = current_user.organization_id
+
         if role_name in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
-            return all_departments
+            return self.department_repo.list_paginated(
+                organization_id,
+                limit=limit,
+                offset=offset,
+            )
 
         if role_name == MANAGER_ROLE:
-            if not current_user.team_id:
-                if current_user.department_id:
-                    return [
-                        department
-                        for department in all_departments
-                        if department.id == current_user.department_id
-                    ]
-                return []
-            org_users = self.user_repo.list_by_organization(current_user.organization_id)
-            team_member_ids = resolve_team_member_ids(org_users, current_user)
-            department_ids = {
-                user.department_id
-                for user in org_users
-                if user.id in team_member_ids and user.department_id is not None
-            }
-            if current_user.department_id:
-                department_ids.add(current_user.department_id)
-            return [
-                department
-                for department in all_departments
-                if department.id in department_ids
-            ]
+            department_ids = self._manager_department_ids(current_user)
+            return self.department_repo.list_paginated(
+                organization_id,
+                limit=limit,
+                offset=offset,
+                department_ids=department_ids,
+            )
 
         if current_user.department_id:
-            return [
-                department
-                for department in all_departments
-                if department.id == current_user.department_id
-            ]
-        return []
+            return self.department_repo.list_paginated(
+                organization_id,
+                limit=limit,
+                offset=offset,
+                department_ids=[current_user.department_id],
+            )
+        return [], 0
 
     def create_department(
         self,

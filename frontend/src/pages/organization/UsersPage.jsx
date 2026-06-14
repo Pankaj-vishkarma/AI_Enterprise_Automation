@@ -10,7 +10,14 @@ import { useRbac } from '../../hooks/useRbac';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { PERMISSIONS } from '../../utils/rbac';
+import {
+  orgListQueryKey,
+  REFERENCE_LIST_LIMIT,
+  STALE_TIME_MS,
+} from '../../utils/pagination';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgSelect, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
+
+const PAGE_SIZE = 10;
 
 const emptyForm = {
   id: null,
@@ -23,6 +30,36 @@ const emptyForm = {
   team_id: '',
 };
 
+const normalizeOptionalId = (value) => {
+  if (value === '' || value == null) return null;
+  return Number(value);
+};
+
+const formSnapshotFromUser = (user) => ({
+  id: user.id,
+  first_name: user.first_name,
+  last_name: user.last_name || '',
+  email: user.email,
+  password: '',
+  role_id: user.role_id ?? '',
+  department_id: user.department_id ?? '',
+  team_id: user.team_id ?? '',
+});
+
+const getEditDirtyFlags = (form, original) => {
+  if (!original) {
+    return { profile: true, role: true, department: true, team: true };
+  }
+  return {
+    profile: form.first_name !== original.first_name
+      || form.last_name !== original.last_name
+      || form.email !== original.email,
+    role: normalizeOptionalId(form.role_id) !== normalizeOptionalId(original.role_id),
+    department: normalizeOptionalId(form.department_id) !== normalizeOptionalId(original.department_id),
+    team: normalizeOptionalId(form.team_id) !== normalizeOptionalId(original.team_id),
+  };
+};
+
 export default function UsersPage({ isSubSection = false }) {
   const { hasPermission } = useRbac();
   const toast = useToast();
@@ -31,23 +68,66 @@ export default function UsersPage({ isSubSection = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(1);
   const [form, setForm] = useState(emptyForm);
+  const [originalSnapshot, setOriginalSnapshot] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
 
-  const { data: usersData, isLoading, error } = useQuery({
-    queryKey: ['users', page],
-    queryFn: () => usersAPI.list({ limit: 10, offset: (page - 1) * 10 }),
-  });
-  const { data: rolesData } = useQuery({ queryKey: ['roles'], queryFn: () => rolesAPI.list() });
-  const { data: deptData } = useQuery({ queryKey: ['departments'], queryFn: () => departmentsAPI.list() });
-  const { data: teamData } = useQuery({ queryKey: ['teams'], queryFn: () => teamsAPI.list() });
+  const listQueryKey = useMemo(
+    () => orgListQueryKey('users', PAGE_SIZE, (page - 1) * PAGE_SIZE),
+    [page],
+  );
 
-  const roles = rolesData?.data || [];
-  const departments = deptData?.data || [];
-  const teams = teamData?.data || [];
+  const { data: usersData, isLoading, error } = useQuery({
+    queryKey: listQueryKey,
+    queryFn: () => usersAPI.list({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+  });
+
+  const usersList = usersData?.data || [];
+  const totalUsers = usersData?.total ?? 0;
+  const needsReferenceData = usersList.length > 0 || isOpen;
+
+  const { data: rolesData } = useQuery({
+    queryKey: ['roles', 'list'],
+    queryFn: () => rolesAPI.list(),
+    enabled: isOpen,
+    staleTime: STALE_TIME_MS,
+    select: (response) => response?.data || [],
+  });
+
+  const { data: departments = [] } = useQuery({
+    queryKey: orgListQueryKey('departments', REFERENCE_LIST_LIMIT, 0),
+    queryFn: () => departmentsAPI.list({ limit: REFERENCE_LIST_LIMIT, offset: 0 }),
+    enabled: needsReferenceData,
+    staleTime: STALE_TIME_MS,
+    select: (response) => response?.data || [],
+  });
+
+  const { data: teams = [] } = useQuery({
+    queryKey: orgListQueryKey('teams', REFERENCE_LIST_LIMIT, 0),
+    queryFn: () => teamsAPI.list({ limit: REFERENCE_LIST_LIMIT, offset: 0 }),
+    enabled: needsReferenceData,
+    staleTime: STALE_TIME_MS,
+    select: (response) => response?.data || [],
+  });
+
+  const roles = rolesData || [];
   const roleMap = useMemo(() => Object.fromEntries(roles.map((r) => [r.id, r.name])), [roles]);
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments]);
   const teamMap = useMemo(() => Object.fromEntries(teams.map((t) => [t.id, t.name])), [teams]);
+
+  const patchUserInListCache = (userId, patch) => {
+    queryClient.setQueryData(listQueryKey, (current) => {
+      if (!current?.data) {
+        return current;
+      }
+      return {
+        ...current,
+        data: current.data.map((user) => (
+          user.id === userId ? { ...user, ...patch } : user
+        )),
+      };
+    });
+  };
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['users'] });
   const saveMutation = useMutation({
@@ -58,26 +138,60 @@ export default function UsersPage({ isSubSection = false }) {
         email: form.email,
       };
       if (form.id) {
-        await usersAPI.update(form.id, payload);
-        if (form.role_id) await usersAPI.changeRole(form.id, Number(form.role_id));
-        if (form.department_id) await usersAPI.assignDepartment(form.id, Number(form.department_id));
-        if (form.team_id) await usersAPI.assignTeam(form.id, Number(form.team_id));
-        return true;
+        const dirty = getEditDirtyFlags(form, originalSnapshot);
+        if (!dirty.profile && !dirty.role && !dirty.department && !dirty.team) {
+          return { isEdit: true, userId: form.id, skipped: true };
+        }
+
+        if (dirty.profile) {
+          await usersAPI.update(form.id, payload);
+        }
+        if (dirty.role && form.role_id) {
+          await usersAPI.changeRole(form.id, Number(form.role_id));
+        }
+        if (dirty.department && form.department_id) {
+          await usersAPI.assignDepartment(form.id, Number(form.department_id));
+        }
+        if (dirty.team && form.team_id) {
+          await usersAPI.assignTeam(form.id, Number(form.team_id));
+        }
+
+        return {
+          isEdit: true,
+          userId: form.id,
+          dirty,
+          patch: {
+            first_name: form.first_name,
+            last_name: form.last_name || null,
+            email: form.email,
+            role_id: normalizeOptionalId(form.role_id),
+            department_id: normalizeOptionalId(form.department_id),
+            team_id: normalizeOptionalId(form.team_id),
+          },
+        };
       }
-      return usersAPI.create({
+      const created = await usersAPI.create({
         ...payload,
         password: form.password,
         role_id: Number(form.role_id),
         department_id: form.department_id ? Number(form.department_id) : null,
         team_id: form.team_id ? Number(form.team_id) : null,
       });
+      return { isEdit: false, created };
     },
-    onSuccess: () => {
-      invalidate();
+    onSuccess: (result) => {
+      if (result?.isEdit) {
+        if (!result.skipped) {
+          patchUserInListCache(result.userId, result.patch);
+        }
+      } else {
+        invalidate();
+      }
       setIsOpen(false);
       setForm(emptyForm);
+      setOriginalSnapshot(null);
       setErrorText('');
-      toast.success(form.id ? 'User updated successfully.' : 'User created successfully.');
+      toast.success(result?.isEdit ? 'User updated successfully.' : 'User created successfully.');
     },
     onError: (err) => {
       const message = getApiErrorMessage(err, 'Unable to save user');
@@ -94,28 +208,21 @@ export default function UsersPage({ isSubSection = false }) {
     onError: (err) => toast.error(getApiErrorMessage(err, 'Unable to update user status.')),
   });
 
-  const usersList = usersData?.data || [];
   const users = usersList.filter((u) =>
     `${u.first_name} ${u.last_name || ''} ${u.email}`.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const hasNextPage = usersList.length === 10;
+  const hasNextPage = page * PAGE_SIZE < totalUsers;
 
   const openCreate = () => {
     setForm({ ...emptyForm, role_id: roles[0]?.id || '' });
+    setOriginalSnapshot(null);
     setErrorText('');
     setIsOpen(true);
   };
   const openEdit = (user) => {
-    setForm({
-      id: user.id,
-      first_name: user.first_name,
-      last_name: user.last_name || '',
-      email: user.email,
-      password: '',
-      role_id: user.role_id || '',
-      department_id: user.department_id || '',
-      team_id: user.team_id || '',
-    });
+    const snapshot = formSnapshotFromUser(user);
+    setForm(snapshot);
+    setOriginalSnapshot(snapshot);
     setErrorText('');
     setIsOpen(true);
   };

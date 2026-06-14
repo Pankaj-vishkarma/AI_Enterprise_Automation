@@ -3,6 +3,7 @@ import logging
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 logger = logging.getLogger(__name__)
@@ -54,6 +55,18 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content=_error_payload("PERMISSION_DENIED", str(exc)),
+        )
+
+    @app.exception_handler(ValidationError)
+    async def response_validation_exception_handler(request: Request, exc: ValidationError):
+        logger.exception("Response validation error on %s", request.url.path)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=_error_payload(
+                "RESPONSE_VALIDATION_ERROR",
+                "Response serialization failed",
+                exc.errors(),
+            ),
         )
 
     @app.exception_handler(SQLAlchemyError)

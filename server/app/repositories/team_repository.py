@@ -1,3 +1,6 @@
+from typing import List, Optional, Tuple
+
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.team import Team
@@ -56,6 +59,31 @@ class TeamRepository:
             .order_by(Team.id.asc())
             .all()
         )
+
+    def list_paginated(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        organization_id: Optional[int] = None,
+        team_ids: Optional[List[int]] = None,
+    ) -> Tuple[list, int]:
+        query = self.db.query(Team)
+        if organization_id is not None:
+            query = query.filter(Team.organization_id == organization_id)
+        if team_ids is not None:
+            if not team_ids:
+                return [], 0
+            query = query.filter(Team.id.in_(team_ids))
+
+        total = query.with_entities(func.count(Team.id)).scalar() or 0
+        rows = (
+            query.order_by(Team.id.asc())
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
+        return rows, int(total)
 
     def update(
         self,

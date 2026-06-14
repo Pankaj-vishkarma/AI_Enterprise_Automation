@@ -26,6 +26,23 @@ class UserOut(BaseModel):
         from_attributes = True
 
 
+class UserListOut(BaseModel):
+    """List-safe user shape: plain str email so one bad row cannot break pagination."""
+
+    id: int
+    first_name: str
+    last_name: str | None = None
+    email: str
+    organization_id: int
+    role_id: int
+    department_id: int | None = None
+    team_id: int | None = None
+    is_active: bool
+
+    class Config:
+        from_attributes = True
+
+
 class UserUpdate(BaseModel):
     first_name: str
     last_name: str | None = None

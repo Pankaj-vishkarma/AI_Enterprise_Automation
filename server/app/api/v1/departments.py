@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -9,12 +7,13 @@ from app.core.dependencies import (
     require_permission,
     MANAGE_DEPARTMENTS_PERMISSION,
 )
-from app.services.department_service import DepartmentService
 from app.schemas.department import (
     DepartmentCreate,
     DepartmentUpdate,
     DepartmentResponse,
 )
+from app.schemas.pagination import PaginatedResponse
+from app.services.department_service import DepartmentService
 
 router = APIRouter(
     prefix="/api/v1/departments",
@@ -26,7 +25,7 @@ require_manage_departments = require_permission(MANAGE_DEPARTMENTS_PERMISSION)
 
 @router.get(
     "",
-    response_model=List[DepartmentResponse],
+    response_model=PaginatedResponse[DepartmentResponse],
 )
 def list_departments(
     limit: int = Query(default=100, ge=1, le=500),
@@ -35,8 +34,13 @@ def list_departments(
     db: Session = Depends(get_db),
 ):
     service = DepartmentService(db)
-    departments = service.list_departments(current_user)
-    return departments[offset : offset + limit]
+    rows, total = service.list_departments(current_user, limit=limit, offset=offset)
+    return PaginatedResponse[DepartmentResponse](
+        items=rows,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.post(

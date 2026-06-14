@@ -5,7 +5,10 @@ import { teamsAPI } from '../../api/teams';
 import { Plus, Edit, Search, Power } from 'lucide-react';
 import { useRbac } from '../../hooks/useRbac';
 import { PERMISSIONS } from '../../utils/rbac';
+import { orgListQueryKey } from '../../utils/pagination';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
+
+const PAGE_SIZE = 10;
 
 const emptyForm = { id: null, name: '', description: '' };
 
@@ -19,7 +22,10 @@ export default function TeamsPage({ isSubSection = false }) {
   const [isOpen, setIsOpen] = useState(false);
   const [errorText, setErrorText] = useState('');
 
-  const { data: teamsData, isLoading } = useQuery({ queryKey: ['teams'], queryFn: () => teamsAPI.list() });
+  const { data: teamsData, isLoading } = useQuery({
+    queryKey: orgListQueryKey('teams', PAGE_SIZE, (page - 1) * PAGE_SIZE),
+    queryFn: () => teamsAPI.list({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
+  });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['teams'] });
   const saveMutation = useMutation({
     mutationFn: () => form.id
@@ -34,10 +40,11 @@ export default function TeamsPage({ isSubSection = false }) {
   });
 
   const teamsList = teamsData?.data || [];
+  const totalTeams = teamsData?.total ?? 0;
   const filteredTeams = teamsList.filter((t) => `${t.name} ${t.description || ''}`.toLowerCase().includes(searchTerm.toLowerCase()));
-  const total = filteredTeams.length;
-  const totalPages = Math.ceil(total / 10) || 1;
-  const teams = filteredTeams.slice((page - 1) * 10, page * 10);
+  const teams = filteredTeams;
+  const totalPages = Math.max(1, Math.ceil(totalTeams / PAGE_SIZE));
+  const hasNextPage = page * PAGE_SIZE < totalTeams;
   const openForm = (team = emptyForm) => {
     setForm({ id: team.id || null, name: team.name || '', description: team.description || '' });
     setErrorText('');
@@ -110,10 +117,10 @@ export default function TeamsPage({ isSubSection = false }) {
               </table>
             </div>
             <div className="px-4 sm:px-6 py-4 border-t border-[#1A1A14]/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <span className="text-sm text-[#6A6A60]">Showing {((page - 1) * 10) + 1} to {Math.min(page * 10, total)} of {total}</span>
+              <span className="text-sm text-[#6A6A60]">Page {page} of {totalPages}</span>
               <div className="flex gap-2">
                 <button type="button" disabled={page === 1} onClick={() => setPage((p) => p - 1)} className={orgPagination}>Previous</button>
-                <button type="button" disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
+                <button type="button" disabled={!hasNextPage} onClick={() => setPage((p) => p + 1)} className={orgPagination}>Next</button>
               </div>
             </div>
           </>

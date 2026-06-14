@@ -7,7 +7,10 @@ import { useRbac } from '../../hooks/useRbac';
 import { useToast } from '../../context/ToastContext';
 import { getApiErrorMessage } from '../../utils/apiError';
 import { PERMISSIONS } from '../../utils/rbac';
+import { orgListQueryKey } from '../../utils/pagination';
 import { orgSearchWrap, orgToolbarRow, orgPageShell, orgPageTitle, orgPageDesc, orgSectionTitle, orgInputWithIcon, orgInputPlain, orgBtnPrimary, orgBtnGhost, orgBtnIcon, orgBtnIconPrimary, orgTableWrap, orgTableHead, orgTh, orgTr, orgTd, orgTdMuted, orgBadgeActive, orgBadgeInactive, orgModalOverlay, orgModal, orgError, orgEmpty, orgLoading, orgPagination } from './orgStyles';
+
+const PAGE_SIZE = 10;
 
 const emptyForm = { id: null, name: '', description: '' };
 
@@ -23,8 +26,8 @@ export default function DepartmentsPage({ isSubSection = false }) {
   const [errorText, setErrorText] = useState('');
 
   const { data: deptData, isLoading, error } = useQuery({
-    queryKey: ['departments', page],
-    queryFn: () => departmentsAPI.list({ limit: 10, offset: (page - 1) * 10 }),
+    queryKey: orgListQueryKey('departments', PAGE_SIZE, (page - 1) * PAGE_SIZE),
+    queryFn: () => departmentsAPI.list({ limit: PAGE_SIZE, offset: (page - 1) * PAGE_SIZE }),
   });
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['departments'] });
   const saveMutation = useMutation({
@@ -54,8 +57,9 @@ export default function DepartmentsPage({ isSubSection = false }) {
   });
 
   const deptList = deptData?.data || [];
+  const totalDepartments = deptData?.total ?? 0;
   const departments = deptList.filter((d) => `${d.name} ${d.description || ''}`.toLowerCase().includes(searchTerm.toLowerCase()));
-  const hasNextPage = deptList.length === 10;
+  const hasNextPage = page * PAGE_SIZE < totalDepartments;
 
   const openForm = (dept = emptyForm) => {
     setForm({ id: dept.id || null, name: dept.name || '', description: dept.description || '' });

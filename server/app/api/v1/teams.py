@@ -1,6 +1,4 @@
-from typing import List
-
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -9,6 +7,7 @@ from app.core.dependencies import (
     VIEW_TEAMS_PERMISSION,
     require_permission,
 )
+from app.schemas.pagination import PaginatedResponse
 from app.schemas.team import TeamCreate, TeamResponse, TeamUpdate
 from app.services.team_service import TeamService
 
@@ -18,13 +17,21 @@ router = APIRouter(
 )
 
 
-@router.get("", response_model=List[TeamResponse])
+@router.get("", response_model=PaginatedResponse[TeamResponse])
 def list_teams(
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     current_user=Depends(require_permission(VIEW_TEAMS_PERMISSION)),
     db: Session = Depends(get_db),
 ):
     service = TeamService(db)
-    return service.list_teams(current_user)
+    rows, total = service.list_teams(current_user, limit=limit, offset=offset)
+    return PaginatedResponse[TeamResponse](
+        items=rows,
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/{team_id}", response_model=TeamResponse)

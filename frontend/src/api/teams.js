@@ -1,8 +1,20 @@
 import client from './client';
+import { parsePaginatedResponse } from '../utils/pagination';
+
+async function listTeams(params) {
+  const response = await client.get('/api/v1/teams', { params });
+  const page = parsePaginatedResponse(response);
+  return {
+    ...response,
+    data: page.items,
+    total: page.total,
+    limit: page.limit,
+    offset: page.offset,
+  };
+}
 
 export const teamsAPI = {
-  list: (params) =>
-    client.get('/api/v1/teams', { params }),
+  list: listTeams,
 
   get: (id) =>
     client.get(`/api/v1/teams/${id}`),
@@ -23,5 +35,5 @@ export const teamsAPI = {
     client.patch(`/api/v1/teams/${id}/enable`),
 
   search: (query, params) =>
-    client.get('/api/v1/teams', { params: { ...params, q: query } }),
+    listTeams({ ...params, q: query }),
 };

@@ -12,21 +12,31 @@ class TeamService:
         self.team_repo = TeamRepository(db)
         self.organization_repo = OrganizationRepository(db)
 
-    def list_teams(self, current_user):
+    def list_teams(
+        self,
+        current_user,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list, int]:
         role_name = current_user.role.name if current_user.role else None
 
         if role_name == SUPER_ADMIN_ROLE:
-            return self.team_repo.list_all()
+            return self.team_repo.list_paginated(limit=limit, offset=offset)
 
         if role_name == MANAGER_ROLE:
             if not current_user.team_id:
-                return []
-            team = self.team_repo.get_by_id(current_user.team_id)
-            if not team or team.organization_id != current_user.organization_id:
-                return []
-            return [team]
+                return [], 0
+            return self.team_repo.list_paginated(
+                limit=limit,
+                offset=offset,
+                team_ids=[current_user.team_id],
+            )
 
-        return self.team_repo.list_by_organization(current_user.organization_id)
+        return self.team_repo.list_paginated(
+            limit=limit,
+            offset=offset,
+            organization_id=current_user.organization_id,
+        )
 
     def get_team_by_id(self, current_user, team_id: int):
         team = self.team_repo.get_by_id(team_id)

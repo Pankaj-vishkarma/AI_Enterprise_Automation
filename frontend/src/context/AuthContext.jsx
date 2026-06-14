@@ -3,6 +3,7 @@ import { authAPI } from '../api/auth';
 import { normalizeAuthUser } from '../utils/authUser';
 
 const AuthContext = createContext();
+let authBootstrapPromise = null;
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -36,7 +37,12 @@ export const AuthProvider = ({ children }) => {
       }
 
       try {
-        const { data } = await authAPI.getCurrentUser();
+        if (!authBootstrapPromise) {
+          authBootstrapPromise = authAPI.getCurrentUser().finally(() => {
+            authBootstrapPromise = null;
+          });
+        }
+        const { data } = await authBootstrapPromise;
         persistSession(
           {
             access_token: token,

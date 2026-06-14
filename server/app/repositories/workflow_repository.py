@@ -26,6 +26,17 @@ class WorkflowRepository:
             .all()
         )
 
+    def workflow_name_map(self, organization_id: int) -> Dict[int, str]:
+        rows = (
+            self.db.query(Workflow.id, Workflow.name)
+            .filter(
+                Workflow.organization_id == organization_id,
+                Workflow.is_deleted.is_(False),
+            )
+            .all()
+        )
+        return {row[0]: row[1] for row in rows}
+
     def get_workflow(self, organization_id: int, workflow_id: int):
         return (
             self.db.query(Workflow)

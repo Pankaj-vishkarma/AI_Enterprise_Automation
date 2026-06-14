@@ -186,7 +186,6 @@ class CollaborationRepository:
     def get_metrics(self, organization_id: int) -> dict:
         runs = (
             self.db.query(CollaborationRun)
-            .options(joinedload(CollaborationRun.team))
             .filter(CollaborationRun.organization_id == organization_id)
             .all()
         )
@@ -201,6 +200,18 @@ class CollaborationRepository:
                 "most_used_teams": [],
                 "most_used_agents": [],
             }
+        team_ids = {run.team_id for run in runs}
+        team_names = {}
+        if team_ids:
+            team_names = {
+                team_id: name
+                for team_id, name in self.db.query(CollaborationTeam.id, CollaborationTeam.name)
+                .filter(
+                    CollaborationTeam.organization_id == organization_id,
+                    CollaborationTeam.id.in_(team_ids),
+                )
+                .all()
+            }
         successful = sum(1 for r in runs if r.status == "completed")
         failed = sum(1 for r in runs if r.status == "failed")
         partial = sum(1 for r in runs if r.status == "partial")
@@ -208,7 +219,7 @@ class CollaborationRepository:
         team_counter: Counter = Counter()
         agent_counter: Counter = Counter()
         for run in runs:
-            team_counter[run.team.name if run.team else f"Team {run.team_id}"] += 1
+            team_counter[team_names.get(run.team_id, f"Team {run.team_id}")] += 1
             for agent in json.loads(run.participating_agents_json or "[]"):
                 agent_counter[agent.get("employee_name", f"Agent {agent.get('employee_id')}")] += 1
         return {

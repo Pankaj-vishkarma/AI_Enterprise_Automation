@@ -14,12 +14,16 @@ from app.repositories.user_repository import UserRepository
 from app.schemas.support import SUPPORT_CATEGORIES, SUPPORT_PRIORITIES
 from app.services.ai_employee_service import AIEmployeeService
 from app.services.rag_service import RAGService
-from app.core.dependencies import SUPPORT_MANAGE_PERMISSION, user_has_permission
+from app.core.dependencies import (
+    ORG_ADMIN_ROLE,
+    SUPER_ADMIN_ROLE,
+    SUPPORT_MANAGE_PERMISSION,
+    user_has_permission,
+)
 from app.utils.rbac_scope import (
     can_manage_support_ticket,
     can_view_support_ticket,
     filter_support_tickets,
-    team_member_ids,
 )
 
 
@@ -30,10 +34,28 @@ class SupportService:
         self.users = UserRepository(db)
         self.teams = TeamRepository(db)
         self.departments = DepartmentRepository(db)
-        self.ai_employees = AIEmployeeService(db)
         self.ai_repo = AIEmployeeRepository(db)
-        self.rag = RAGService(db)
-        self.groq = GroqClient()
+        self._ai_employees = None
+        self._rag = None
+        self._groq = None
+
+    @property
+    def ai_employees(self):
+        if self._ai_employees is None:
+            self._ai_employees = AIEmployeeService(self.db)
+        return self._ai_employees
+
+    @property
+    def rag(self):
+        if self._rag is None:
+            self._rag = RAGService(self.db)
+        return self._rag
+
+    @property
+    def groq(self):
+        if self._groq is None:
+            self._groq = GroqClient()
+        return self._groq
 
     @staticmethod
     def _now_iso() -> str:
@@ -127,10 +149,75 @@ class SupportService:
     def _team_member_ids(self, current_user) -> set[int]:
         if not current_user.team_id:
             return set()
-        members = self.users.list_by_organization(current_user.organization_id)
-        return team_member_ids(
-            member for member in members if member.team_id == current_user.team_id
+        return set(
+            self.users.list_team_member_ids(
+                current_user.organization_id,
+                current_user.team_id,
+            )
         )
+
+    @staticmethod
+    def _metrics_ticket_from_record(record) -> dict:
+        data = json.loads(record.data_json or "{}")
+        return {
+            "id": record.id,
+            "organization_id": record.organization_id,
+            "created_by_user_id": record.created_by_user_id,
+            "title": record.title,
+            "status": record.status,
+            "priority": data.get("priority", "medium"),
+            "category": data.get("category", "General Questions"),
+            "sentiment": data.get("sentiment", "Neutral"),
+            "escalated": bool(data.get("escalated", False)),
+            "assigned_to_user_id": data.get("assigned_to_user_id"),
+            "assigned_to_team_id": data.get("assigned_to_team_id"),
+            "assigned_to_department_id": data.get("assigned_to_department_id"),
+            "resolved_at": data.get("resolved_at"),
+            "created_at": record.created_at,
+        }
+
+    @staticmethod
+    def _aggregate_ticket_metrics(tickets: List[dict]) -> dict:
+        total = len(tickets)
+        open_count = sum(1 for t in tickets if t["status"] in {"New", "In Progress"})
+        resolved = sum(1 for t in tickets if t["status"] == "Resolved")
+        closed = sum(1 for t in tickets if t["status"] == "Closed")
+        escalated = sum(1 for t in tickets if t["escalated"])
+        resolution_rate = round(((resolved + closed) / total) * 100, 1) if total else 0.0
+        escalation_rate = round((escalated / total) * 100, 1) if total else 0.0
+
+        categories = Counter(t["category"] for t in tickets)
+        sentiments = Counter(t["sentiment"] for t in tickets)
+        priorities = Counter(t["priority"] for t in tickets)
+
+        resolution_hours = []
+        for ticket in tickets:
+            if ticket.get("resolved_at") and ticket.get("created_at"):
+                try:
+                    resolved_at = datetime.fromisoformat(ticket["resolved_at"].replace("Z", "+00:00"))
+                    created = ticket["created_at"]
+                    if created.tzinfo is None:
+                        created = created.replace(tzinfo=timezone.utc)
+                    hours = (resolved_at - created).total_seconds() / 3600
+                    if hours >= 0:
+                        resolution_hours.append(hours)
+                except (ValueError, TypeError):
+                    pass
+
+        avg_hours = round(sum(resolution_hours) / len(resolution_hours), 1) if resolution_hours else None
+
+        return {
+            "total_tickets": total,
+            "open_tickets": open_count,
+            "resolved_tickets": resolved,
+            "closed_tickets": closed,
+            "resolution_rate": resolution_rate,
+            "escalation_rate": escalation_rate,
+            "average_resolution_hours": avg_hours,
+            "category_distribution": dict(categories),
+            "sentiment_distribution": dict(sentiments),
+            "priority_distribution": dict(priorities),
+        }
 
     def _ensure_ticket_access(self, current_user, ticket: dict) -> None:
         if not can_view_support_ticket(current_user, ticket, self._team_member_ids(current_user)):
@@ -423,47 +510,21 @@ class SupportService:
         return self.serialize_ticket(record)
 
     def get_metrics(self, current_user) -> dict:
-        tickets = self.list_tickets(current_user)
-        total = len(tickets)
-        open_count = sum(1 for t in tickets if t["status"] in {"New", "In Progress"})
-        resolved = sum(1 for t in tickets if t["status"] == "Resolved")
-        closed = sum(1 for t in tickets if t["status"] == "Closed")
-        escalated = sum(1 for t in tickets if t["escalated"])
-        resolution_rate = round(((resolved + closed) / total) * 100, 1) if total else 0.0
-        escalation_rate = round((escalated / total) * 100, 1) if total else 0.0
+        role_name = getattr(getattr(current_user, "role", None), "name", None)
+        records = self.repo.list(current_user.organization_id, "support")
 
-        categories = Counter(t["category"] for t in tickets)
-        sentiments = Counter(t["sentiment"] for t in tickets)
-        priorities = Counter(t["priority"] for t in tickets)
+        if role_name in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
+            tickets = [self._metrics_ticket_from_record(record) for record in records]
+        else:
+            member_ids = self._team_member_ids(current_user)
+            tickets = [
+                ticket
+                for record in records
+                if (ticket := self._metrics_ticket_from_record(record))
+                and can_view_support_ticket(current_user, ticket, member_ids)
+            ]
 
-        resolution_hours = []
-        for t in tickets:
-            if t.get("resolved_at") and t.get("created_at"):
-                try:
-                    resolved_at = datetime.fromisoformat(t["resolved_at"].replace("Z", "+00:00"))
-                    created = t["created_at"]
-                    if created.tzinfo is None:
-                        created = created.replace(tzinfo=timezone.utc)
-                    hours = (resolved_at - created).total_seconds() / 3600
-                    if hours >= 0:
-                        resolution_hours.append(hours)
-                except (ValueError, TypeError):
-                    pass
-
-        avg_hours = round(sum(resolution_hours) / len(resolution_hours), 1) if resolution_hours else None
-
-        return {
-            "total_tickets": total,
-            "open_tickets": open_count,
-            "resolved_tickets": resolved,
-            "closed_tickets": closed,
-            "resolution_rate": resolution_rate,
-            "escalation_rate": escalation_rate,
-            "average_resolution_hours": avg_hours,
-            "category_distribution": dict(categories),
-            "sentiment_distribution": dict(sentiments),
-            "priority_distribution": dict(priorities),
-        }
+        return self._aggregate_ticket_metrics(tickets)
 
     @staticmethod
     def to_operations_format(ticket: dict) -> dict:

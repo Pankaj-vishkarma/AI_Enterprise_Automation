@@ -168,6 +168,39 @@ class AIEmployeeRepository:
         self.db.refresh(employee)
         return employee
 
+    def count_active(self, organization_id: int) -> int:
+        return (
+            self.db.query(AIEmployee)
+            .filter(
+                AIEmployee.organization_id == organization_id,
+                AIEmployee.is_deleted.is_(False),
+                AIEmployee.is_active.is_(True),
+                AIEmployee.status == "Active",
+            )
+            .count()
+        )
+
+    def count_total(self, organization_id: int) -> int:
+        return (
+            self.db.query(AIEmployee)
+            .filter(
+                AIEmployee.organization_id == organization_id,
+                AIEmployee.is_deleted.is_(False),
+            )
+            .count()
+        )
+
+    def employee_name_map(self, organization_id: int) -> dict[int, str]:
+        rows = (
+            self.db.query(AIEmployee.id, AIEmployee.name)
+            .filter(
+                AIEmployee.organization_id == organization_id,
+                AIEmployee.is_deleted.is_(False),
+            )
+            .all()
+        )
+        return {row[0]: row[1] for row in rows}
+
     def list_runs(self, organization_id: int, employee_id: int, limit: int = 50, offset: int = 0):
         return (
             self.db.query(AIEmployeeRun)

@@ -5,6 +5,7 @@ import MainLayout from '../../components/layout/MainLayout';
 import { analyticsAPI } from '../../api/analytics';
 import { supportAPI } from '../../api/support';
 import { omnichannelAPI } from '../../api/omnichannel';
+import { voiceAPI } from '../../api/voice';
 import { getDashboardConfig, hasPermission, PERMISSIONS } from '../../utils/rbac';
 import {
   appPageShell,
@@ -25,30 +26,76 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const config = getDashboardConfig(user?.role);
   const canViewAnalytics = hasPermission(user, PERMISSIONS.ANALYTICS_VIEW);
+  const needsSupportMetrics = Boolean(user) && !canViewAnalytics;
+  const isPersonalScope = config.scope === 'personal';
 
-  const { data: analyticsData } = useQuery({
+  const {
+    data: analyticsData,
+    isLoading: analyticsLoading,
+    isError: analyticsError,
+  } = useQuery({
     queryKey: ['dashboard-analytics'],
     queryFn: () => analyticsAPI.dashboard(),
     enabled: canViewAnalytics,
   });
 
-  const { data: supportMetrics } = useQuery({
+  const {
+    data: supportMetrics,
+    isLoading: supportLoading,
+    isError: supportError,
+  } = useQuery({
     queryKey: ['dashboard-support'],
     queryFn: () => supportAPI.metrics(),
-    enabled: Boolean(user),
+    enabled: needsSupportMetrics,
   });
 
-  const { data: omnichannelData } = useQuery({
+  const {
+    data: omnichannelData,
+    isLoading: omnichannelLoading,
+    isError: omnichannelError,
+  } = useQuery({
     queryKey: ['dashboard-omnichannel'],
     queryFn: () => omnichannelAPI.listConversations(),
     enabled: user?.role === 'EMPLOYEE',
   });
 
+  const {
+    data: voiceAnalytics,
+    isLoading: voiceLoading,
+    isError: voiceError,
+  } = useQuery({
+    queryKey: ['dashboard-voice'],
+    queryFn: () => voiceAPI.analytics(),
+    enabled: isPersonalScope,
+  });
+
   const summary = analyticsData?.data?.summary;
-  const support = supportMetrics?.data;
+  const support = canViewAnalytics ? analyticsData?.data?.support : supportMetrics?.data;
+  const collaborationTeams = analyticsData?.data?.collaboration?.most_used_teams?.length ?? 0;
+  const voiceSessions = canViewAnalytics
+    ? summary?.total_voice_sessions
+    : voiceAnalytics?.data?.total_sessions;
+
+  const isLoading = canViewAnalytics
+    ? analyticsLoading
+    : supportLoading || (user?.role === 'EMPLOYEE' && omnichannelLoading) || (isPersonalScope && voiceLoading);
+
+  const hasError = canViewAnalytics
+    ? analyticsError
+    : supportError || (user?.role === 'EMPLOYEE' && omnichannelError) || (isPersonalScope && voiceError);
 
   const cards = (() => {
-    if (canViewAnalytics && summary) {
+    if (canViewAnalytics) {
+      if (analyticsLoading) {
+        return Array.from({ length: 4 }, (_, index) => ({
+          title: `Loading ${index + 1}`,
+          value: '…',
+          trend: 'Loading',
+        }));
+      }
+      if (!summary) {
+        return [];
+      }
       if (config.scope === 'platform') {
         return [
           { title: 'Active Users', value: formatValue(summary.active_users), trend: 'Platform-wide' },
@@ -69,8 +116,16 @@ export default function DashboardPage() {
         { title: 'Team Tickets', value: formatValue(support?.open_tickets), trend: 'Open queue' },
         { title: 'Resolved', value: formatValue(support?.resolved_tickets), trend: 'This period' },
         { title: 'Knowledge Queries', value: formatValue(summary.knowledge_queries), trend: 'Team usage' },
-        { title: 'Collaboration', value: formatValue(analyticsData?.data?.collaboration?.active_teams), trend: 'Active teams' },
+        { title: 'Collaboration', value: formatValue(collaborationTeams), trend: 'Active teams' },
       ];
+    }
+
+    if (analyticsLoading || supportLoading || omnichannelLoading || voiceLoading) {
+      return Array.from({ length: 4 }, (_, index) => ({
+        title: `Loading ${index + 1}`,
+        value: '…',
+        trend: 'Loading',
+      }));
     }
 
     const assignedConversations = Array.isArray(omnichannelData?.data)
@@ -81,7 +136,7 @@ export default function DashboardPage() {
       { title: 'My Open Tickets', value: formatValue(support?.open_tickets), trend: 'Assigned to you' },
       { title: 'Resolved Tickets', value: formatValue(support?.resolved_tickets), trend: 'Your requests' },
       { title: 'Conversations', value: formatValue(assignedConversations), trend: 'Assigned inbox' },
-      { title: 'Voice Sessions', value: formatValue(summary?.total_voice_sessions, ''), trend: 'Personal usage' },
+      { title: 'Voice Sessions', value: formatValue(voiceSessions), trend: 'Personal usage' },
     ];
   })();
 
@@ -92,11 +147,17 @@ export default function DashboardPage() {
           <h1 className={appPageTitle}>Welcome back, {user?.firstName}</h1>
           <p className={appPageDesc}>{config.description}</p>
           <p className="text-xs uppercase tracking-wider text-[#6A6A60] mt-1">{config.title}</p>
+          {isLoading && (
+            <p className="text-sm text-[#6A6A60] mt-2">Loading dashboard data…</p>
+          )}
+          {hasError && !isLoading && (
+            <p className="text-sm text-red-600 mt-2">Some dashboard data could not be loaded.</p>
+          )}
         </div>
 
         <div className={`${appGrid} grid-cols-1 sm:grid-cols-2 lg:grid-cols-4`}>
-          {cards.map((card) => (
-            <div key={card.title} className={appGlassCard}>
+          {cards.map((card, index) => (
+            <div key={`${card.title}-${index}`} className={appGlassCard}>
               <p className="text-sm text-[#6A6A60] mb-2">{card.title}</p>
               <p className="text-2xl sm:text-3xl font-bold text-[#1A1A14]">{card.value}</p>
               <p className="text-sm text-emerald-700 mt-2">{card.trend}</p>
@@ -158,9 +219,6 @@ export default function DashboardPage() {
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm text-[#6A6A60]">Scope</span>
                   <span className="font-semibold text-[#1A1A14] capitalize">{config.scope}</span>
-                </div>
-                <div className="w-full bg-[#1A1A14]/10 rounded-full h-2">
-                  <div className="bg-[#E8C547] h-2 rounded-full" style={{ width: '72%' }} />
                 </div>
               </div>
             </div>

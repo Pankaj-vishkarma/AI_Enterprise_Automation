@@ -1,11 +1,14 @@
 import json
-from collections import Counter, defaultdict
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import case, func, or_, text
+from sqlalchemy.orm import Session, joinedload
 
 from app.clients.redis_client import get_redis
+from app.core.database import SessionLocal
 from app.models.ai_employee import AIEmployee
 from app.models.ai_employee_run import AIEmployeeRun
 from app.models.knowledge_document import KnowledgeDocument
@@ -14,14 +17,27 @@ from app.models.knowledge_query import KnowledgeQuery
 from app.models.omnichannel_conversation import OmnichannelConversation
 from app.models.omnichannel_message import OmnichannelMessage
 from app.models.user import User
-from app.models.workflow import WorkflowInstance, WorkflowInstanceStep
+from app.models.workflow import Workflow, WorkflowInstance, WorkflowInstanceStep
+from app.repositories.ai_employee_repository import AIEmployeeRepository
 from app.repositories.browser_repository import BrowserRepository
 from app.repositories.collaboration_repository import CollaborationRepository
 from app.repositories.research_repository import ResearchRepository
 from app.repositories.voice_repository import VoiceRepository
-from app.services.ai_employee_service import AIEmployeeService
+from app.repositories.workflow_repository import WorkflowRepository
 from app.services.support_service import SupportService
-from app.services.workflow_service import WorkflowService
+
+_DASHBOARD_SECTIONS = (
+    "knowledge",
+    "employees",
+    "workflows",
+    "support",
+    "research",
+    "browser",
+    "voice",
+    "omnichannel",
+    "organization",
+    "collaboration",
+)
 
 
 class AnalyticsService:
@@ -54,7 +70,7 @@ class AnalyticsService:
         except Exception:
             return None
 
-    def _cache_set(self, key: str, payload: dict, ttl: int = 120) -> None:
+    def _cache_set(self, key: str, payload: dict, ttl: int = 300) -> None:
         redis = get_redis()
         if not redis:
             return
@@ -64,43 +80,110 @@ class AnalyticsService:
             pass
 
     def _knowledge_analytics(self, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
-        documents = (
-            self.db.query(KnowledgeDocument)
-            .filter(KnowledgeDocument.organization_id == org_id)
+        doc_filters = [KnowledgeDocument.organization_id == org_id]
+        total_documents, documents_active = (
+            self.db.query(
+                func.count(KnowledgeDocument.id),
+                func.sum(case((KnowledgeDocument.is_active.is_(True), 1), else_=0)),
+            )
+            .filter(*doc_filters)
+            .one()
+        )
+        total_documents = int(total_documents or 0)
+        documents_active = int(documents_active or 0)
+        type_rows = (
+            self.db.query(KnowledgeDocument.document_type, func.count(KnowledgeDocument.id))
+            .filter(*doc_filters)
+            .group_by(KnowledgeDocument.document_type)
             .all()
         )
-        queries = (
-            self.db.query(KnowledgeQuery)
-            .filter(KnowledgeQuery.organization_id == org_id)
+        type_counts = Counter({doc_type: count for doc_type, count in type_rows})
+
+        query_filters = [KnowledgeQuery.organization_id == org_id]
+        if start:
+            query_filters.append(KnowledgeQuery.created_at >= start)
+        if end:
+            query_filters.append(KnowledgeQuery.created_at <= end)
+
+        topic_and_gap_rows = (
+            self.db.query(
+                KnowledgeQuery.question_text,
+                func.count(KnowledgeQuery.id).label("query_count"),
+                func.sum(
+                    case(
+                        (
+                            or_(
+                                KnowledgeQuery.matched_document_ids.is_(None),
+                                KnowledgeQuery.matched_document_ids == "",
+                                KnowledgeQuery.matched_document_ids == "[]",
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("gap_count"),
+            )
+            .filter(*query_filters)
+            .group_by(KnowledgeQuery.question_text)
+            .order_by(func.count(KnowledgeQuery.id).desc())
             .all()
         )
-        queries = [q for q in queries if self._in_range(q.created_at, start, end)]
+        topic_counts = Counter()
+        gap_topics = Counter()
+        for question_text, query_count, gap_count in topic_and_gap_rows:
+            topic_counts[question_text] = int(query_count)
+            if int(gap_count or 0) > 0:
+                gap_topics[question_text] = int(gap_count)
+        query_volume = sum(topic_counts.values())
 
-        type_counts = Counter(d.document_type for d in documents)
-        topic_counts = Counter(q.question_text for q in queries)
-        accessed_document_ids: Counter = Counter()
-        gap_topics: Counter = Counter()
+        accessed_sql = """
+            SELECT doc_id::int AS document_id, COUNT(*) AS access_count
+            FROM knowledge_queries,
+            LATERAL json_array_elements_text(matched_document_ids::json) AS doc_id
+            WHERE organization_id = :org_id
+              AND matched_document_ids IS NOT NULL
+              AND matched_document_ids NOT IN ('', '[]')
+        """
+        accessed_params: Dict[str, Any] = {"org_id": org_id}
+        if start:
+            accessed_sql += " AND created_at >= :start_date"
+            accessed_params["start_date"] = start
+        if end:
+            accessed_sql += " AND created_at <= :end_date"
+            accessed_params["end_date"] = end
+        accessed_sql += """
+            GROUP BY doc_id
+            ORDER BY access_count DESC
+            LIMIT 10
+        """
+        accessed_rows = self.db.execute(text(accessed_sql), accessed_params).fetchall()
+        accessed_document_ids = Counter({int(row[0]): int(row[1]) for row in accessed_rows})
 
-        for query in queries:
-            matched = json.loads(query.matched_document_ids or "[]")
-            if not matched:
-                gap_topics[query.question_text] += 1
-            for doc_id in matched:
-                accessed_document_ids[doc_id] += 1
+        doc_titles = {}
+        if accessed_document_ids:
+            title_rows = (
+                self.db.query(KnowledgeDocument.id, KnowledgeDocument.title)
+                .filter(
+                    KnowledgeDocument.organization_id == org_id,
+                    KnowledgeDocument.id.in_(accessed_document_ids.keys()),
+                )
+                .all()
+            )
+            doc_titles = {doc_id: title for doc_id, title in title_rows}
 
-        doc_titles = {d.id: d.title for d in documents}
         chunks_total = (
-            self.db.query(KnowledgeDocumentChunk)
+            self.db.query(func.count(KnowledgeDocumentChunk.id))
             .filter(KnowledgeDocumentChunk.organization_id == org_id)
-            .count()
+            .scalar()
+            or 0
         )
 
         return {
-            "total_documents": len(documents),
+            "total_documents": total_documents,
             "documents_by_category": dict(type_counts),
-            "documents_active": sum(1 for d in documents if d.is_active),
+            "documents_active": documents_active,
             "chunks_total": chunks_total,
-            "query_volume": len(queries),
+            "query_volume": query_volume,
             "most_searched_topics": [
                 {"topic": t, "count": c} for t, c in topic_counts.most_common(10)
             ],
@@ -119,119 +202,141 @@ class AnalyticsService:
         }
 
     def _employee_analytics(self, current_user, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
-        ai_service = AIEmployeeService(self.db)
-        employees = ai_service.list(current_user)
-        runs = (
-            self.db.query(AIEmployeeRun)
-            .filter(AIEmployeeRun.organization_id == org_id)
-            .order_by(AIEmployeeRun.id.desc())
+        employee_repo = AIEmployeeRepository(self.db)
+        total_employees = employee_repo.count_total(org_id)
+        active_employees = employee_repo.count_active(org_id)
+        employee_names = employee_repo.employee_name_map(org_id)
+
+        run_filters = [AIEmployeeRun.organization_id == org_id]
+        if start:
+            run_filters.append(AIEmployeeRun.created_at >= start)
+        if end:
+            run_filters.append(AIEmployeeRun.created_at <= end)
+
+        status_rows = (
+            self.db.query(AIEmployeeRun.status, func.count(AIEmployeeRun.id))
+            .filter(*run_filters)
+            .group_by(AIEmployeeRun.status)
             .all()
         )
-        runs = [r for r in runs if self._in_range(r.created_at, start, end)]
+        status_counts = {status: int(count) for status, count in status_rows}
+        completed = status_counts.get("completed", 0)
+        failed = status_counts.get("failed", 0)
+        total_runs = sum(status_counts.values())
 
-        tool_counter: Counter = Counter()
-        employee_counter: Counter = Counter()
-        execution_times = []
-        for run in runs:
-            employee_counter[run.employee_id] += 1
-            for tool in json.loads(run.tools_used_json or "[]"):
-                tool_counter[tool] += 1
-            if run.execution_time_ms is not None:
-                execution_times.append(run.execution_time_ms)
+        employee_rows = (
+            self.db.query(AIEmployeeRun.employee_id, func.count(AIEmployeeRun.id))
+            .filter(*run_filters)
+            .group_by(AIEmployeeRun.employee_id)
+            .order_by(func.count(AIEmployeeRun.id).desc())
+            .limit(10)
+            .all()
+        )
 
-        completed = sum(1 for r in runs if r.status == "completed")
-        failed = sum(1 for r in runs if r.status == "failed")
-        total_runs = len(runs)
-        employee_names = {e["id"]: e["name"] for e in employees}
+        avg_execution_time_ms = self.db.query(
+            func.avg(AIEmployeeRun.execution_time_ms)
+        ).filter(*run_filters, AIEmployeeRun.execution_time_ms.isnot(None)).scalar()
+
+        tool_sql = """
+            SELECT tool_name, COUNT(*) AS usage_count
+            FROM ai_employee_runs,
+            LATERAL json_array_elements_text(tools_used_json::json) AS tool_name
+            WHERE organization_id = :org_id
+              AND tools_used_json IS NOT NULL
+              AND tools_used_json NOT IN ('', '[]')
+        """
+        tool_params: Dict[str, Any] = {"org_id": org_id}
+        if start:
+            tool_sql += " AND created_at >= :start_date"
+            tool_params["start_date"] = start
+        if end:
+            tool_sql += " AND created_at <= :end_date"
+            tool_params["end_date"] = end
+        tool_sql += """
+            GROUP BY tool_name
+            ORDER BY usage_count DESC
+            LIMIT 10
+        """
+        tool_rows = self.db.execute(text(tool_sql), tool_params).fetchall()
+        tool_counter = Counter({row[0]: int(row[1]) for row in tool_rows})
 
         return {
-            "total_employees": len(employees),
-            "active_employees": ai_service.count_active(org_id),
+            "total_employees": total_employees,
+            "active_employees": active_employees,
             "total_runs": total_runs,
             "successful_runs": completed,
             "failed_runs": failed,
             "success_rate": round(completed * 100 / total_runs, 1) if total_runs else 0.0,
             "average_execution_time_ms": (
-                round(sum(execution_times) / len(execution_times), 1) if execution_times else None
+                round(float(avg_execution_time_ms), 1) if avg_execution_time_ms is not None else None
             ),
             "tool_usage": [{"tool": t, "count": c} for t, c in tool_counter.most_common(10)],
             "most_active_employees": [
                 {
                     "employee_id": eid,
                     "name": employee_names.get(eid, f"Employee {eid}"),
-                    "runs": count,
-                    "share_percent": round(count * 100 / total_runs, 1) if total_runs else 0,
+                    "runs": int(count),
+                    "share_percent": round(int(count) * 100 / total_runs, 1) if total_runs else 0,
                 }
-                for eid, count in employee_counter.most_common(10)
+                for eid, count in employee_rows
             ],
         }
 
-    def _workflow_analytics(self, current_user, start: Optional[datetime], end: Optional[datetime]) -> dict:
-        base = WorkflowService(self.db).get_metrics(current_user)
-        org_id = current_user.organization_id
-
-        instances = (
-            self.db.query(WorkflowInstance)
+    def _workflow_base_metrics(self, org_id: int) -> dict:
+        instance_rows = (
+            self.db.query(WorkflowInstance.status, func.count(WorkflowInstance.id))
             .filter(WorkflowInstance.organization_id == org_id)
+            .group_by(WorkflowInstance.status)
             .all()
         )
-        instances = [i for i in instances if self._in_range(i.created_at, start, end)]
+        status_counts = {status: int(count) for status, count in instance_rows}
+        total_instances = sum(status_counts.values())
+        completed = status_counts.get("completed", 0)
 
-        completion_times = []
-        workflow_stats: Dict[int, Dict[str, int]] = defaultdict(lambda: {"total": 0, "completed": 0})
-        pending_approvals = 0
-        step_delays: List[Dict[str, Any]] = []
+        workflow_rows = (
+            self.db.query(Workflow.status, func.count(Workflow.id))
+            .filter(Workflow.organization_id == org_id, Workflow.is_deleted.is_(False))
+            .group_by(Workflow.status)
+            .all()
+        )
+        workflow_counts = {status: int(count) for status, count in workflow_rows}
 
-        instance_ids = [instance.id for instance in instances]
-        steps_by_instance: Dict[int, list] = defaultdict(list)
-        if instance_ids:
-            all_steps = (
-                self.db.query(WorkflowInstanceStep)
-                .filter(WorkflowInstanceStep.instance_id.in_(instance_ids))
-                .all()
-            )
-            for step in all_steps:
-                steps_by_instance[step.instance_id].append(step)
-
-        for instance in instances:
-            wf_id = instance.workflow_id
-            workflow_stats[wf_id]["total"] += 1
-            if instance.status == "completed":
-                workflow_stats[wf_id]["completed"] += 1
-                if instance.completed_at and instance.created_at:
-                    created = instance.created_at
-                    if created.tzinfo is None:
-                        created = created.replace(tzinfo=timezone.utc)
-                    completed = instance.completed_at
-                    if completed.tzinfo is None:
-                        completed = completed.replace(tzinfo=timezone.utc)
-                    hours = (completed - created).total_seconds() / 3600
-                    if hours >= 0:
-                        completion_times.append(hours)
-
-            steps = steps_by_instance.get(instance.id, [])
-            for step in steps:
-                if step.status == "pending" and instance.status == "in_progress":
-                    pending_approvals += 1
-                    if instance.created_at:
-                        created = instance.created_at
-                        if created.tzinfo is None:
-                            created = created.replace(tzinfo=timezone.utc)
-                        delay_hours = (self._now() - created).total_seconds() / 3600
-                        step_delays.append({
-                            "step_name": step.name,
-                            "workflow_instance_id": instance.id,
-                            "delay_hours": round(delay_hours, 1),
-                        })
-
-        workflow_names = {
-            w["id"]: w["name"]
-            for w in WorkflowService(self.db).list_workflows(current_user)
+        return {
+            "total_workflows": sum(workflow_counts.values()),
+            "active_workflows": workflow_counts.get("active", 0),
+            "total_instances": total_instances,
+            "completed_instances": completed,
+            "in_progress_instances": status_counts.get("in_progress", 0),
+            "rejected_instances": status_counts.get("rejected", 0),
+            "completion_rate": round(completed * 100 / total_instances, 1) if total_instances else 0.0,
         }
+
+    def _workflow_analytics(self, current_user, start: Optional[datetime], end: Optional[datetime]) -> dict:
+        workflow_repo = WorkflowRepository(self.db)
+        base = self._workflow_base_metrics(current_user.organization_id)
+        org_id = current_user.organization_id
+
+        instance_filters = [WorkflowInstance.organization_id == org_id]
+        if start:
+            instance_filters.append(WorkflowInstance.created_at >= start)
+        if end:
+            instance_filters.append(WorkflowInstance.created_at <= end)
+
+        performance_rows = (
+            self.db.query(
+                WorkflowInstance.workflow_id,
+                func.count(WorkflowInstance.id),
+                func.sum(case((WorkflowInstance.status == "completed", 1), else_=0)),
+            )
+            .filter(*instance_filters)
+            .group_by(WorkflowInstance.workflow_id)
+            .all()
+        )
+        workflow_names = workflow_repo.workflow_name_map(org_id)
         performance = []
-        for wf_id, stats in workflow_stats.items():
-            total = stats["total"]
-            completed = stats["completed"]
+        for wf_id, total, completed in performance_rows:
+            total = int(total or 0)
+            completed = int(completed or 0)
             performance.append({
                 "workflow_id": wf_id,
                 "workflow_name": workflow_names.get(wf_id, f"Workflow {wf_id}"),
@@ -241,6 +346,66 @@ class AnalyticsService:
             })
         performance.sort(key=lambda x: x["total_instances"], reverse=True)
 
+        avg_completion_hours = self.db.query(
+            func.avg(
+                func.extract(
+                    "epoch",
+                    WorkflowInstance.completed_at - WorkflowInstance.created_at,
+                )
+                / 3600.0
+            )
+        ).filter(
+            *instance_filters,
+            WorkflowInstance.status == "completed",
+            WorkflowInstance.completed_at.isnot(None),
+            WorkflowInstance.created_at.isnot(None),
+        ).scalar()
+
+        pending_filters = [
+            WorkflowInstance.organization_id == org_id,
+            WorkflowInstance.status == "in_progress",
+            WorkflowInstanceStep.status == "pending",
+        ]
+        if start:
+            pending_filters.append(WorkflowInstance.created_at >= start)
+        if end:
+            pending_filters.append(WorkflowInstance.created_at <= end)
+
+        pending_approvals = (
+            self.db.query(func.count(WorkflowInstanceStep.id))
+            .join(WorkflowInstance, WorkflowInstance.id == WorkflowInstanceStep.instance_id)
+            .filter(*pending_filters)
+            .scalar()
+            or 0
+        )
+
+        pending_rows = (
+            self.db.query(
+                WorkflowInstanceStep.name,
+                WorkflowInstance.id,
+                WorkflowInstance.created_at,
+            )
+            .join(WorkflowInstance, WorkflowInstance.id == WorkflowInstanceStep.instance_id)
+            .filter(*pending_filters)
+            .order_by(WorkflowInstance.created_at.asc())
+            .limit(10)
+            .all()
+        )
+        step_delays: List[Dict[str, Any]] = []
+        now = self._now()
+        for step_name, instance_id, created_at in pending_rows:
+            if not created_at:
+                continue
+            created = created_at
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            delay_hours = (now - created).total_seconds() / 3600
+            step_delays.append({
+                "step_name": step_name,
+                "workflow_instance_id": instance_id,
+                "delay_hours": round(delay_hours, 1),
+            })
+
         bottlenecks = sorted(step_delays, key=lambda x: x["delay_hours"], reverse=True)[:10]
         for item in bottlenecks:
             item["severity"] = "Critical" if item["delay_hours"] >= 48 else "Minor" if item["delay_hours"] < 24 else "Medium"
@@ -248,9 +413,9 @@ class AnalyticsService:
         return {
             **base,
             "average_completion_hours": (
-                round(sum(completion_times) / len(completion_times), 1) if completion_times else None
+                round(float(avg_completion_hours), 1) if avg_completion_hours is not None else None
             ),
-            "pending_approvals": pending_approvals,
+            "pending_approvals": int(pending_approvals),
             "workflow_performance": performance,
             "bottlenecks": bottlenecks,
         }
@@ -259,47 +424,48 @@ class AnalyticsService:
         return SupportService(self.db).get_metrics(current_user)
 
     def _research_analytics(self, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
+        metrics = ResearchRepository(self.db).get_metrics(org_id)
+        if not start and not end:
+            metrics["research_categories"] = metrics.pop("research_type_breakdown", [])
+            return metrics
+
         reports = ResearchRepository(self.db).list_reports(org_id, limit=5000)
         reports = [r for r in reports if self._in_range(r.created_at, start, end)]
-        metrics = ResearchRepository(self.db).get_metrics(org_id)
-        if start or end:
-            completed = sum(1 for r in reports if r.status == "completed")
-            total = len(reports)
-            metrics = {
-                **metrics,
-                "total_reports": total,
-                "completed_reports": completed,
-                "success_rate": round(completed * 100 / total, 1) if total else 0.0,
-                "most_requested_topics": [
-                    {"topic": t, "count": c}
-                    for t, c in Counter(r.request_text[:120] for r in reports).most_common(10)
-                ],
-                "research_categories": [
-                    {"research_type": rt, "count": c}
-                    for rt, c in Counter(r.research_type for r in reports).most_common()
-                ],
-            }
-        else:
-            metrics["research_categories"] = metrics.pop("research_type_breakdown", [])
-        return metrics
+        completed = sum(1 for r in reports if r.status == "completed")
+        total = len(reports)
+        return {
+            **metrics,
+            "total_reports": total,
+            "completed_reports": completed,
+            "success_rate": round(completed * 100 / total, 1) if total else 0.0,
+            "most_requested_topics": [
+                {"topic": t, "count": c}
+                for t, c in Counter(r.request_text[:120] for r in reports).most_common(10)
+            ],
+            "research_categories": [
+                {"research_type": rt, "count": c}
+                for rt, c in Counter(r.research_type for r in reports).most_common()
+            ],
+        }
 
     def _browser_analytics(self, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
+        if not start and not end:
+            return BrowserRepository(self.db).get_metrics(org_id)
+
         tasks = BrowserRepository(self.db).list_tasks(org_id, limit=5000)
         tasks = [t for t in tasks if self._in_range(t.created_at, start, end)]
-        if start or end:
-            completed = sum(1 for t in tasks if t.status == "completed")
-            total = len(tasks)
-            return {
-                "total_tasks": total,
-                "completed_tasks": completed,
-                "failed_tasks": sum(1 for t in tasks if t.status == "failed"),
-                "success_rate": round(completed * 100 / total, 1) if total else 0.0,
-                "task_type_breakdown": [
-                    {"task_type": tt, "count": c}
-                    for tt, c in Counter(t.task_type for t in tasks).most_common()
-                ],
-            }
-        return BrowserRepository(self.db).get_metrics(org_id)
+        completed = sum(1 for t in tasks if t.status == "completed")
+        total = len(tasks)
+        return {
+            "total_tasks": total,
+            "completed_tasks": completed,
+            "failed_tasks": sum(1 for t in tasks if t.status == "failed"),
+            "success_rate": round(completed * 100 / total, 1) if total else 0.0,
+            "task_type_breakdown": [
+                {"task_type": tt, "count": c}
+                for tt, c in Counter(t.task_type for t in tasks).most_common()
+            ],
+        }
 
     def _voice_analytics(self, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
         repo = VoiceRepository(self.db)
@@ -328,90 +494,193 @@ class AnalyticsService:
         }
 
     def _omnichannel_analytics(self, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
-        convs = (
-            self.db.query(OmnichannelConversation)
-            .filter(OmnichannelConversation.organization_id == org_id)
+        conv_filters = [OmnichannelConversation.organization_id == org_id]
+        msg_filters = [OmnichannelMessage.organization_id == org_id]
+        if start:
+            conv_filters.append(OmnichannelConversation.created_at >= start)
+            msg_filters.append(OmnichannelMessage.created_at >= start)
+        if end:
+            conv_filters.append(OmnichannelConversation.created_at <= end)
+            msg_filters.append(OmnichannelMessage.created_at <= end)
+
+        if start or end:
+            convs = self.db.query(OmnichannelConversation).filter(*conv_filters).all()
+            messages = self.db.query(OmnichannelMessage).filter(*msg_filters).all()
+            channel_counter = Counter(c.channel for c in convs)
+            handoffs = sum(1 for c in convs if c.handoff_status == "human")
+            ai_replies = sum(1 for m in messages if m.sender_type == "ai")
+            return {
+                "total_conversations": len(convs),
+                "conversations_by_channel": dict(channel_counter),
+                "human_handoffs": handoffs,
+                "ai_reply_count": ai_replies,
+                "total_messages": len(messages),
+                "active_conversations": sum(1 for c in convs if c.status in {"AI Active", "Human Active"}),
+            }
+
+        channel_rows = (
+            self.db.query(OmnichannelConversation.channel, func.count(OmnichannelConversation.id))
+            .filter(*conv_filters)
+            .group_by(OmnichannelConversation.channel)
             .all()
         )
-        convs = [c for c in convs if self._in_range(c.created_at, start, end)]
-        messages = (
-            self.db.query(OmnichannelMessage)
-            .filter(OmnichannelMessage.organization_id == org_id)
-            .all()
-        )
-        messages = [m for m in messages if self._in_range(m.created_at, start, end)]
-
-        channel_counter = Counter(c.channel for c in convs)
-        handoffs = sum(1 for c in convs if c.handoff_status == "human")
-        ai_replies = sum(1 for m in messages if m.sender_type == "ai")
-
         return {
-            "total_conversations": len(convs),
-            "conversations_by_channel": dict(channel_counter),
-            "human_handoffs": handoffs,
-            "ai_reply_count": ai_replies,
-            "total_messages": len(messages),
-            "active_conversations": sum(1 for c in convs if c.status in {"AI Active", "Human Active"}),
+            "total_conversations": self.db.query(func.count(OmnichannelConversation.id)).filter(*conv_filters).scalar() or 0,
+            "conversations_by_channel": {channel: count for channel, count in channel_rows},
+            "human_handoffs": (
+                self.db.query(func.count(OmnichannelConversation.id))
+                .filter(*conv_filters, OmnichannelConversation.handoff_status == "human")
+                .scalar()
+                or 0
+            ),
+            "ai_reply_count": (
+                self.db.query(func.count(OmnichannelMessage.id))
+                .filter(*msg_filters, OmnichannelMessage.sender_type == "ai")
+                .scalar()
+                or 0
+            ),
+            "total_messages": self.db.query(func.count(OmnichannelMessage.id)).filter(*msg_filters).scalar() or 0,
+            "active_conversations": (
+                self.db.query(func.count(OmnichannelConversation.id))
+                .filter(*conv_filters, OmnichannelConversation.status.in_(["AI Active", "Human Active"]))
+                .scalar()
+                or 0
+            ),
         }
 
     def _organization_analytics(self, org_id: int, start: Optional[datetime], end: Optional[datetime]) -> dict:
-        users = (
-            self.db.query(User)
+        active_users = (
+            self.db.query(func.count(User.id))
             .filter(User.organization_id == org_id, User.is_active.is_(True))
+            .scalar()
+            or 0
+        )
+
+        run_filters = [AIEmployeeRun.organization_id == org_id]
+        if start:
+            run_filters.append(AIEmployeeRun.created_at >= start)
+        if end:
+            run_filters.append(AIEmployeeRun.created_at <= end)
+
+        user_activity_rows = (
+            self.db.query(AIEmployeeRun.user_id, func.count(AIEmployeeRun.id))
+            .filter(*run_filters)
+            .group_by(AIEmployeeRun.user_id)
+            .order_by(func.count(AIEmployeeRun.id).desc())
+            .limit(10)
             .all()
         )
-        employee_runs = (
-            self.db.query(AIEmployeeRun)
-            .filter(AIEmployeeRun.organization_id == org_id)
+
+        dept_activity_rows = (
+            self.db.query(AIEmployee.department_id, func.count(AIEmployeeRun.id))
+            .join(AIEmployee, AIEmployee.id == AIEmployeeRun.employee_id)
+            .filter(*run_filters, AIEmployee.department_id.isnot(None))
+            .group_by(AIEmployee.department_id)
+            .order_by(func.count(AIEmployeeRun.id).desc())
+            .limit(10)
             .all()
         )
-        employee_runs = [r for r in employee_runs if self._in_range(r.created_at, start, end)]
-
-        dept_activity: Counter = Counter()
-        team_activity: Counter = Counter()
-        user_activity: Counter = Counter()
-
-        employee_ids = {run.employee_id for run in employee_runs}
-        employees_by_id = {
-            employee.id: employee
-            for employee in self.db.query(AIEmployee)
-            .filter(AIEmployee.id.in_(employee_ids))
-            .all()
-        } if employee_ids else {}
-
-        for run in employee_runs:
-            user_activity[run.user_id] += 1
-            employee = employees_by_id.get(run.employee_id)
-            if employee and employee.department_id:
-                dept_activity[employee.department_id] += 1
 
         from app.models.department import Department
-        from app.models.team import Team
 
-        dept_names = {
-            d.id: d.name
-            for d in self.db.query(Department).filter(Department.organization_id == org_id).all()
-        }
-        team_names = {
-            t.id: t.name
-            for t in self.db.query(Team).filter(Team.organization_id == org_id).all()
-        }
+        dept_ids = [dept_id for dept_id, _ in dept_activity_rows]
+        dept_names = {}
+        if dept_ids:
+            dept_names = {
+                dept_id: name
+                for dept_id, name in self.db.query(Department.id, Department.name)
+                .filter(Department.organization_id == org_id, Department.id.in_(dept_ids))
+                .all()
+            }
 
         return {
-            "active_users": len(users),
+            "active_users": active_users,
             "department_activity": [
-                {"department_id": did, "name": dept_names.get(did, f"Dept {did}"), "events": count}
-                for did, count in dept_activity.most_common(10)
+                {"department_id": did, "name": dept_names.get(did, f"Dept {did}"), "events": int(count)}
+                for did, count in dept_activity_rows
             ],
-            "team_activity": [
-                {"team_id": tid, "name": team_names.get(tid, f"Team {tid}"), "events": count}
-                for tid, count in team_activity.most_common(10)
-            ],
+            "team_activity": [],
             "most_active_users": [
-                {"user_id": uid, "events": count}
-                for uid, count in user_activity.most_common(10)
+                {"user_id": uid, "events": int(count)}
+                for uid, count in user_activity_rows
             ],
         }
+
+    @staticmethod
+    def _load_user_for_section(db: Session, user_id: int):
+        return (
+            db.query(User)
+            .options(joinedload(User.role))
+            .filter(User.id == user_id)
+            .first()
+        )
+
+    @classmethod
+    def _run_dashboard_section(
+        cls,
+        section: str,
+        user_id: int,
+        org_id: int,
+        start_date: Optional[datetime],
+        end_date: Optional[datetime],
+    ) -> tuple:
+        db = SessionLocal()
+        try:
+            user = cls._load_user_for_section(db, user_id)
+            if not user:
+                raise RuntimeError(f"User {user_id} not found for dashboard section '{section}'")
+            service = cls(db)
+            if section == "knowledge":
+                payload = service._knowledge_analytics(org_id, start_date, end_date)
+            elif section == "employees":
+                payload = service._employee_analytics(user, org_id, start_date, end_date)
+            elif section == "workflows":
+                payload = service._workflow_analytics(user, start_date, end_date)
+            elif section == "support":
+                payload = service._support_analytics(user)
+            elif section == "research":
+                payload = service._research_analytics(org_id, start_date, end_date)
+            elif section == "browser":
+                payload = service._browser_analytics(org_id, start_date, end_date)
+            elif section == "voice":
+                payload = service._voice_analytics(org_id, start_date, end_date)
+            elif section == "omnichannel":
+                payload = service._omnichannel_analytics(org_id, start_date, end_date)
+            elif section == "organization":
+                payload = service._organization_analytics(org_id, start_date, end_date)
+            elif section == "collaboration":
+                payload = CollaborationRepository(db).get_metrics(org_id)
+            else:
+                raise ValueError(f"Unknown dashboard section: {section}")
+            return section, payload
+        finally:
+            db.close()
+
+    def _build_dashboard_sections(
+        self,
+        current_user,
+        org_id: int,
+        start_date: Optional[datetime],
+        end_date: Optional[datetime],
+    ) -> Dict[str, dict]:
+        user_id = current_user.id
+        results: Dict[str, dict] = {}
+        with ThreadPoolExecutor(max_workers=len(_DASHBOARD_SECTIONS)) as executor:
+            futures = [
+                executor.submit(
+                    self._run_dashboard_section,
+                    section,
+                    user_id,
+                    org_id,
+                    start_date,
+                    end_date,
+                )
+                for section in _DASHBOARD_SECTIONS
+            ]
+            for future in as_completed(futures):
+                section, payload = future.result()
+                results[section] = payload
+        return results
 
     def get_dashboard(
         self,
@@ -425,16 +694,17 @@ class AnalyticsService:
         if cached:
             return cached
 
-        knowledge = self._knowledge_analytics(org_id, start_date, end_date)
-        employees = self._employee_analytics(current_user, org_id, start_date, end_date)
-        workflows = self._workflow_analytics(current_user, start_date, end_date)
-        support = self._support_analytics(current_user)
-        research = self._research_analytics(org_id, start_date, end_date)
-        browser = self._browser_analytics(org_id, start_date, end_date)
-        voice = self._voice_analytics(org_id, start_date, end_date)
-        omnichannel = self._omnichannel_analytics(org_id, start_date, end_date)
-        organization = self._organization_analytics(org_id, start_date, end_date)
-        collaboration = CollaborationRepository(self.db).get_metrics(org_id)
+        sections = self._build_dashboard_sections(current_user, org_id, start_date, end_date)
+        knowledge = sections["knowledge"]
+        employees = sections["employees"]
+        workflows = sections["workflows"]
+        support = sections["support"]
+        research = sections["research"]
+        browser = sections["browser"]
+        voice = sections["voice"]
+        omnichannel = sections["omnichannel"]
+        organization = sections["organization"]
+        collaboration = sections["collaboration"]
 
         summary = {
             "knowledge_queries": knowledge["query_volume"],

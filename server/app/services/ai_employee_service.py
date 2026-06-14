@@ -211,5 +211,4 @@ class AIEmployeeService:
         }
 
     def count_active(self, organization_id: int) -> int:
-        employees = self.repo.list(organization_id)
-        return sum(1 for employee in employees if employee.is_active and employee.status.lower() == "active")
+        return self.repo.count_active(organization_id)

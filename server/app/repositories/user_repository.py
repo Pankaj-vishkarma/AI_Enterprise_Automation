@@ -52,6 +52,17 @@ class UserRepository:
             .all()
         )
 
+    def list_team_member_ids(self, organization_id: int, team_id: int) -> List[int]:
+        rows = (
+            self.db.query(User.id)
+            .filter(
+                User.organization_id == organization_id,
+                User.team_id == team_id,
+            )
+            .all()
+        )
+        return [row[0] for row in rows]
+
     def list_by_organization_and_roles(
         self,
         organization_id: int,

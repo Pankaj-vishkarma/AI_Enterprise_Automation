@@ -4,7 +4,7 @@ from fastapi import APIRouter
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.clients.redis_client import get_redis
+from app.clients.redis_client import get_redis, get_redis_status, redis_url_configured
 from app.core.config import settings
 from app.core.database import SessionLocal
 
@@ -26,12 +26,17 @@ def _check_database() -> dict:
 
 
 def _check_redis() -> dict:
-    if not settings.REDIS_URL:
+    if not redis_url_configured():
         return {"status": "skipped", "message": "Redis not configured"}
+    status = get_redis_status()
+    if status == "disabled":
+        return {"status": "skipped", "message": "Redis not configured"}
+    if status == "connection_failed":
+        return {"status": "error", "message": "Redis connection failed"}
     try:
         client = get_redis()
         if client is None:
-            return {"status": "skipped", "message": "Redis not configured"}
+            return {"status": "error", "message": "Redis unavailable"}
         client.ping()
         return {"status": "ok"}
     except Exception as exc:

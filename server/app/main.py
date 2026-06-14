@@ -26,7 +26,7 @@ from app.api.v1.omnichannel import router as omnichannel_router
 from app.api.v1.omnichannel_webhooks import router as omnichannel_webhooks_router
 from app.api.v1.analytics import router as analytics_router
 from app.api.v1.organizations import router as organizations_router
-from app.clients.redis_client import get_redis
+from app.clients.redis_client import get_redis_status
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.core.exception_handlers import register_exception_handlers
@@ -60,11 +60,13 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.exception("Failed to synchronize RBAC defaults")
 
-    try:
-        _ = get_redis()
-        logger.info("Redis client initialized")
-    except Exception:
-        logger.info("Redis not configured or failed to initialize")
+    redis_status = get_redis_status()
+    if redis_status == "enabled":
+        logger.info("Startup: Redis enabled")
+    elif redis_status == "connection_failed":
+        logger.warning("Startup: Redis connection failed — continuing without cache")
+    else:
+        logger.info("Startup: Redis disabled")
 
     if settings.START_EMBEDDING_WORKER_IN_API:
         try:

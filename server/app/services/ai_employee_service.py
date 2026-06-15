@@ -101,7 +101,9 @@ class AIEmployeeService:
         return {"id": employee_id, "deleted": True}
 
     def list_runs(self, current_user, employee_id: int, limit: int = 50, offset: int = 0):
-        employee = self.repo.get(current_user.organization_id, employee_id)
+        employee = self.repo.get(
+            current_user.organization_id, employee_id, load_runs=False
+        )
         if not employee:
             return None
         self._assert_access(current_user, employee)
@@ -111,7 +113,9 @@ class AIEmployeeService:
         return [self.repo.serialize_run(run) for run in runs]
 
     def get_metrics(self, current_user, employee_id: int):
-        employee = self.repo.get(current_user.organization_id, employee_id)
+        employee = self.repo.get(
+            current_user.organization_id, employee_id, load_runs=False
+        )
         if not employee:
             return None
         self._assert_access(current_user, employee)
@@ -123,7 +127,9 @@ class AIEmployeeService:
     def run_with_context(
         self, current_user, employee_id: int, task: str, prior_context: str = ""
     ):
-        employee = self.repo.get(current_user.organization_id, employee_id)
+        employee = self.repo.get(
+            current_user.organization_id, employee_id, load_runs=False
+        )
         if not employee:
             return None
         self._assert_access(current_user, employee)

@@ -8,11 +8,21 @@ from app.repositories.knowledge_document_chunk_repository import (
     KnowledgeDocumentChunkRepository,
 )
 
+_MODEL_CACHE: dict[str, SentenceTransformer] = {}
+
+
+def get_embedding_model(model_name: str | None = None) -> SentenceTransformer:
+    """Process-level singleton — load SentenceTransformer once per worker."""
+    resolved = model_name or settings.EMBEDDING_MODEL_NAME
+    if resolved not in _MODEL_CACHE:
+        _MODEL_CACHE[resolved] = SentenceTransformer(resolved)
+    return _MODEL_CACHE[resolved]
+
 
 class EmbeddingService:
     def __init__(self, db, model_name: str | None = None):
         self.db = db
-        self.model = SentenceTransformer(model_name or settings.EMBEDDING_MODEL_NAME)
+        self.model = get_embedding_model(model_name)
         self.chunk_repo = KnowledgeDocumentChunkRepository(db)
 
     def embed_texts(self, texts: List[str]) -> List[List[float]]:

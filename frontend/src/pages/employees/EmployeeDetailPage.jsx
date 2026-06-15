@@ -20,6 +20,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel, appBadgeActive, appBadgeError, appBadgeInfo, appTabActive, appTabInactive } from '../../styles/appStyles';
+import { applyRunToQueryCache } from './aiEmployeeCache';
 
 export default function EmployeeDetailPage() {
   const { id } = useParams();
@@ -38,24 +39,27 @@ export default function EmployeeDetailPage() {
   const { data: runsRes } = useQuery({
     queryKey: ['ai-employee-runs', id],
     queryFn: () => aiEmployeesAPI.listRuns(id, { limit: 50 }),
-    enabled: activeTab === 'history' || activeTab === 'overview',
+    enabled: activeTab === 'history',
   });
   const { data: metricsRes } = useQuery({
     queryKey: ['ai-employee-metrics', id],
     queryFn: () => aiEmployeesAPI.getMetrics(id),
-    enabled: activeTab === 'metrics' || activeTab === 'overview',
+    enabled: activeTab === 'metrics',
   });
-  const { data: configRes } = useQuery({
+  const { data: configRes, isLoading: isConfigLoading } = useQuery({
     queryKey: ['ai-employees-config'],
     queryFn: () => aiEmployeesAPI.getConfig(),
+    enabled: isEditing,
   });
-  const { data: deptRes } = useQuery({
+  const { data: deptRes, isLoading: isDeptLoading } = useQuery({
     queryKey: ['departments'],
     queryFn: () => departmentsAPI.list(),
+    enabled: isEditing,
   });
-  const { data: docsRes } = useQuery({
+  const { data: docsRes, isLoading: isDocsLoading } = useQuery({
     queryKey: ['knowledge-documents'],
     queryFn: () => knowledgeAPI.listDocuments(),
+    enabled: isEditing,
   });
 
   const employee = employeeRes?.data;
@@ -69,24 +73,25 @@ export default function EmployeeDetailPage() {
   const [editForm, setEditForm] = useState(null);
 
   React.useEffect(() => {
-    if (employee && !editForm) {
-      setEditForm({
-        title: employee.title,
-        role: data.role,
-        department_id: data.department_id || '',
-        model: data.model || config.models?.[0] || '',
-        instructions: data.instructions || '',
-        tools: data.tools || [],
-        knowledge_document_ids: data.knowledge_document_ids || [],
-      });
-    }
-  }, [employee, data, config.models, editForm]);
+    if (!employee || !isEditing) return;
+    setEditForm({
+      title: employee.title,
+      role: data.role,
+      department_id: data.department_id || '',
+      model: data.model || config.models?.[0] || '',
+      instructions: data.instructions || '',
+      tools: data.tools || [],
+      knowledge_document_ids: data.knowledge_document_ids || [],
+    });
+  }, [employee, isEditing, data.role, data.department_id, data.model, data.instructions, data.tools, data.knowledge_document_ids, config.models]);
 
-  const invalidate = () => {
+  const invalidateEmployee = () => {
     queryClient.invalidateQueries({ queryKey: ['ai-employee', id] });
+  };
+
+  const invalidateEmployeeAndStudio = () => {
+    invalidateEmployee();
     queryClient.invalidateQueries({ queryKey: ['ai-employees'] });
-    queryClient.invalidateQueries({ queryKey: ['ai-employee-runs', id] });
-    queryClient.invalidateQueries({ queryKey: ['ai-employee-metrics', id] });
   };
 
   const updateMutation = useMutation({
@@ -103,8 +108,9 @@ export default function EmployeeDetailPage() {
         },
       }),
     onSuccess: () => {
-      invalidate();
+      invalidateEmployeeAndStudio();
       setIsEditing(false);
+      setEditForm(null);
       setErrorText('');
     },
     onError: (err) => setErrorText(err.response?.data?.detail || 'Update failed'),
@@ -112,11 +118,11 @@ export default function EmployeeDetailPage() {
 
   const enableMutation = useMutation({
     mutationFn: () => aiEmployeesAPI.enable(id),
-    onSuccess: invalidate,
+    onSuccess: invalidateEmployeeAndStudio,
   });
   const disableMutation = useMutation({
     mutationFn: () => aiEmployeesAPI.disable(id),
-    onSuccess: invalidate,
+    onSuccess: invalidateEmployeeAndStudio,
   });
   const deleteMutation = useMutation({
     mutationFn: () => aiEmployeesAPI.delete(id),
@@ -127,7 +133,7 @@ export default function EmployeeDetailPage() {
     onSuccess: (res) => {
       setRunResult(res.data);
       setTaskInput('');
-      invalidate();
+      applyRunToQueryCache(queryClient, id, res.data);
     },
     onError: (err) => setErrorText(err.response?.data?.detail || 'Task execution failed'),
   });
@@ -237,7 +243,12 @@ export default function EmployeeDetailPage() {
             );
           })}
           <button
-            onClick={() => setIsEditing(!isEditing)}
+            onClick={() => {
+              if (isEditing) {
+                setEditForm(null);
+              }
+              setIsEditing(!isEditing);
+            }}
             className={`ml-auto px-4 py-2 text-sm flex items-center gap-2 ${
               isEditing ? appTabActive : appTabInactive
             }`}
@@ -252,6 +263,11 @@ export default function EmployeeDetailPage() {
         {isEditing && editForm && (
           <div className={`${appGlassCard} space-y-4`}>
             <h2 className={appSectionTitle}>Edit AI Employee</h2>
+            {(isConfigLoading || isDeptLoading || isDocsLoading) && (
+              <div className="flex justify-center py-4">
+                <Loader className="animate-spin text-[#1A1A14]" size={24} />
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={appLabel}>Name</label>

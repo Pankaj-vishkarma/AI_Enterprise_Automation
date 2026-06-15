@@ -96,10 +96,19 @@ class AIEmployeeRepository:
             query = query.filter(AIEmployee.is_deleted.is_(False))
         return query.order_by(AIEmployee.updated_at.desc(), AIEmployee.id.desc()).all()
 
-    def get(self, organization_id: int, employee_id: int, include_deleted: bool = False):
+    def get(
+        self,
+        organization_id: int,
+        employee_id: int,
+        include_deleted: bool = False,
+        load_runs: bool = True,
+    ):
+        options = [joinedload(AIEmployee.department)]
+        if load_runs:
+            options.append(joinedload(AIEmployee.runs))
         query = (
             self.db.query(AIEmployee)
-            .options(joinedload(AIEmployee.department), joinedload(AIEmployee.runs))
+            .options(*options)
             .filter(
                 AIEmployee.organization_id == organization_id,
                 AIEmployee.id == employee_id,

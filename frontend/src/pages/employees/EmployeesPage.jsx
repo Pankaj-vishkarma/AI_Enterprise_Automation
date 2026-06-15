@@ -50,17 +50,20 @@ export default function EmployeesPage() {
     queryKey: ['ai-employees'],
     queryFn: () => aiEmployeesAPI.list(),
   });
-  const { data: configRes } = useQuery({
+  const { data: configRes, isLoading: isConfigLoading } = useQuery({
     queryKey: ['ai-employees-config'],
     queryFn: () => aiEmployeesAPI.getConfig(),
+    enabled: isModalOpen,
   });
-  const { data: deptRes } = useQuery({
+  const { data: deptRes, isLoading: isDeptLoading } = useQuery({
     queryKey: ['departments'],
     queryFn: () => departmentsAPI.list(),
+    enabled: isModalOpen,
   });
-  const { data: docsRes } = useQuery({
+  const { data: docsRes, isLoading: isDocsLoading } = useQuery({
     queryKey: ['knowledge-documents'],
     queryFn: () => knowledgeAPI.listDocuments(),
+    enabled: isModalOpen,
   });
 
   const employees = (employeesRes?.data || []).map(mapEmployee);
@@ -94,16 +97,21 @@ export default function EmployeesPage() {
   });
 
   const openCreate = () => {
-    const preset = config.presets?.[emptyForm.role] || {};
-    setForm({
-      ...emptyForm,
-      model: config.models?.[0] || 'llama-3.3-70b-versatile',
-      instructions: preset.instructions || '',
-      tools: preset.default_tools || [],
-    });
+    setForm(emptyForm);
     setErrorText('');
     setIsModalOpen(true);
   };
+
+  React.useEffect(() => {
+    if (!isModalOpen || !config.models?.length) return;
+    const preset = config.presets?.[emptyForm.role] || {};
+    setForm((prev) => ({
+      ...prev,
+      model: prev.model || config.models[0] || 'llama-3.3-70b-versatile',
+      instructions: prev.instructions || preset.instructions || '',
+      tools: prev.tools.length ? prev.tools : preset.default_tools || [],
+    }));
+  }, [isModalOpen, config.models, config.presets]);
 
   const onRoleChange = (role) => {
     const preset = config.presets?.[role] || {};
@@ -246,6 +254,11 @@ export default function EmployeesPage() {
                 className="p-6 space-y-4 overflow-y-auto flex-1"
               >
                 {errorText && <div className={appError}>{errorText}</div>}
+                {(isConfigLoading || isDeptLoading || isDocsLoading) && (
+                  <div className="flex justify-center py-6">
+                    <Loader className="animate-spin text-[#1A1A14]" size={28} />
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={appLabel}>Agent Name</label>

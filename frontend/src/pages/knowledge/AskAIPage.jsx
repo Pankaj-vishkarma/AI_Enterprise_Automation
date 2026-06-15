@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import MainLayout from '../../components/layout/MainLayout';
 import KnowledgeNav from '../../components/knowledge/KnowledgeNav';
 import { knowledgeAPI } from '../../api/knowledge';
@@ -12,7 +13,11 @@ const SUGGESTED_QUESTIONS = [
   "What is the probation period?"
 ];
 
+const KNOWLEDGE_HISTORY_QUERY_KEY = ['knowledge-history'];
+const KNOWLEDGE_STATISTICS_QUERY_KEY = ['knowledge-statistics'];
+
 export default function AskAIPage() {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState([
@@ -44,6 +49,10 @@ export default function AskAIPage() {
         content: res.data.answer_text || "I couldn't find a matching record in the knowledge base. Please check if appropriate files are uploaded.",
       };
       setMessages((prev) => [...prev, aiMessage]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: KNOWLEDGE_HISTORY_QUERY_KEY }),
+        queryClient.invalidateQueries({ queryKey: KNOWLEDGE_STATISTICS_QUERY_KEY }),
+      ]);
     } catch (err) {
       console.error('Error submitting query', err);
       const errorMessage = {

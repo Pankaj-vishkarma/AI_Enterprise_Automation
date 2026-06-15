@@ -25,11 +25,11 @@ export default function KnowledgeStatisticsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className={appGlassCard}>
               <p className="text-xs text-[#6A6A60]">Total Documents</p>
-              <p className="text-2xl font-bold">{stats.total_documents ?? 0}</p>
+              <p className="text-2xl font-bold">{stats.documents_total ?? 0}</p>
             </div>
             <div className={appGlassCard}>
               <p className="text-xs text-[#6A6A60]">Total Queries</p>
-              <p className="text-2xl font-bold">{stats.total_queries ?? 0}</p>
+              <p className="text-2xl font-bold">{stats.queries_total ?? 0}</p>
             </div>
             <div className={`${appGlassCard} md:col-span-2`}>
               <h3 className="text-sm font-bold mb-3">Most Searched Topics</h3>

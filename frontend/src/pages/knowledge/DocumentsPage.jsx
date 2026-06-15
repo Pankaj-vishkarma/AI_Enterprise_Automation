@@ -26,6 +26,9 @@ const SUPPORTED_TYPES = [
   "Internal Documentation"
 ];
 
+const INGEST_POLL_STATUSES = new Set(['ingest_queued', 'processing']);
+const INGEST_POLL_INTERVAL_MS = 3000;
+
 export default function DocumentsPage() {
   const { hasPermission } = useRbac();
   const canManageKnowledge = hasPermission(PERMISSIONS.KNOWLEDGE_MANAGE);
@@ -46,6 +49,11 @@ export default function DocumentsPage() {
   const { data: docsData, isLoading, error } = useQuery({
     queryKey: ['documents', page],
     queryFn: () => knowledgeAPI.listDocuments({ limit: 10, offset: (page - 1) * 10 }),
+    refetchInterval: (query) => {
+      const list = query.state.data?.data ?? [];
+      const hasIngestInProgress = list.some((doc) => INGEST_POLL_STATUSES.has(doc.status));
+      return hasIngestInProgress ? INGEST_POLL_INTERVAL_MS : false;
+    },
   });
 
   const docsList = docsData?.data || [];

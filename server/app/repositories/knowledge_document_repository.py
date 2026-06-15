@@ -115,6 +115,18 @@ class KnowledgeDocumentRepository:
 
         return document
 
+    def update_status(self, document_id: int, status: str):
+        document = self.get_by_id(document_id)
+
+        if not document:
+            return None
+
+        document.status = status
+        self.db.commit()
+        self.db.refresh(document)
+
+        return document
+
     def delete(self, document_id: int):
         document = self.get_by_id(document_id)
         if not document:

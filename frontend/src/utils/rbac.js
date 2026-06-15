@@ -100,7 +100,6 @@ export const SIDEBAR_ITEMS = [
     roles: [ROLES.MANAGER],
   },
   { path: '/knowledge', label: 'Knowledge', icon: BookOpen, roles: ALL_ROLES },
-  { path: '/knowledge/ask-ai', label: 'Ask AI', icon: MessageCircle, roles: ALL_ROLES },
   { path: '/employees', label: 'AI Employees', icon: Bot, roles: ALL_ROLES },
   {
     path: '/collaboration',
@@ -170,7 +169,6 @@ export function canAccessRoute(pathname, userOrRole) {
 
 export function getSidebarItems(role) {
   if (!role) return [];
-  if (role === ROLES.SUPER_ADMIN) return SIDEBAR_ITEMS;
   return SIDEBAR_ITEMS.filter((item) => item.roles.includes(role));
 }
 

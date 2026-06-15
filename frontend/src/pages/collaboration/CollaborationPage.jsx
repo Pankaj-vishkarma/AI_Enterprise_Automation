@@ -35,11 +35,12 @@ export default function CollaborationPage() {
   const { data: employeesRes } = useQuery({
     queryKey: ['ai-employees'],
     queryFn: () => aiEmployeesAPI.list(),
+    enabled: isTeamModalOpen,
   });
   const { data: runsRes } = useQuery({
     queryKey: ['collaboration-runs'],
     queryFn: () => collaborationAPI.listRuns({ limit: 50 }),
-    enabled: activeTab === 'history' || activeTab === 'metrics',
+    enabled: activeTab === 'history',
   });
   const { data: metricsRes } = useQuery({
     queryKey: ['collaboration-metrics'],

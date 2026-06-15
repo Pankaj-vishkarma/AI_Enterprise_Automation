@@ -95,9 +95,16 @@ class CollaborationService:
                 raise ValueError(f"AI employee {member['ai_employee_id']} not found or inactive")
 
     def _execute_agent_step(
-        self, current_user, employee_id: int, task: str, prior_context: str, position: int
+        self,
+        current_user,
+        employee_id: int,
+        task: str,
+        prior_context: str,
+        position: int,
+        *,
+        employee_name: Optional[str] = None,
+        employee_role: Optional[str] = None,
     ) -> Dict[str, Any]:
-        employee = self.ai_employee_repo.get(current_user.organization_id, employee_id)
         result = self.ai_employee_service.run_with_context(
             current_user, employee_id, task, prior_context=prior_context
         )
@@ -105,8 +112,8 @@ class CollaborationService:
             raise RuntimeError(f"AI employee {employee_id} not found")
         return {
             "employee_id": employee_id,
-            "employee_name": employee.name if employee else f"Agent {employee_id}",
-            "employee_role": employee.role if employee else "Assistant",
+            "employee_name": employee_name or f"Agent {employee_id}",
+            "employee_role": employee_role or "Assistant",
             "position": position,
             "status": result["status"],
             "output": result["output"],
@@ -150,6 +157,8 @@ class CollaborationService:
                     task,
                     previous,
                     member.position,
+                    employee_name=employee.name if employee else None,
+                    employee_role=employee.role if employee else None,
                 )
                 logs.append(step)
                 if step["status"] == "failed":
@@ -181,19 +190,30 @@ class CollaborationService:
 
         service = self
         member_specs = [
-            (m.ai_employee_id, m.position, m.ai_employee.name if m.ai_employee else f"Agent {m.ai_employee_id}")
+            (
+                m.ai_employee_id,
+                m.position,
+                m.ai_employee.name if m.ai_employee else f"Agent {m.ai_employee_id}",
+                m.ai_employee.role if m.ai_employee else "Assistant",
+            )
             for m in members
         ]
-        node_names = [f"agent_{emp_id}" for emp_id, _, _ in member_specs]
+        node_names = [f"agent_{emp_id}" for emp_id, _, _, _ in member_specs]
 
-        def make_node(emp_id: int, position: int, emp_name: str):
+        def make_node(emp_id: int, position: int, emp_name: str, emp_role: str):
             def run_node(state: dict) -> dict:
                 if state.get("failed"):
                     return state
                 prior = state.get("previous", "")
                 try:
                     step = service._execute_agent_step(
-                        current_user, emp_id, task, prior, position
+                        current_user,
+                        emp_id,
+                        task,
+                        prior,
+                        position,
+                        employee_name=emp_name,
+                        employee_role=emp_role,
                     )
                     logs = state.get("logs", []) + [step]
                     if step["status"] == "failed":
@@ -231,8 +251,8 @@ class CollaborationService:
             return run_node
 
         graph = StateGraph(dict)
-        for index, (emp_id, position, emp_name) in enumerate(member_specs):
-            graph.add_node(node_names[index], make_node(emp_id, position, emp_name))
+        for index, (emp_id, position, emp_name, emp_role) in enumerate(member_specs):
+            graph.add_node(node_names[index], make_node(emp_id, position, emp_name, emp_role))
             if index:
                 graph.add_edge(node_names[index - 1], node_names[index])
         graph.set_entry_point(node_names[0])

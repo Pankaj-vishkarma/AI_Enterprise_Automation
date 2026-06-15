@@ -52,11 +52,15 @@ class UserRepository:
         team_id: Optional[int] = None,
         employee_role_id: Optional[int] = None,
         include_user_id: Optional[int] = None,
+        exclude_role_id: Optional[int] = None,
     ) -> Query:
         query = self.db.query(User)
 
         if organization_id is not None:
             query = query.filter(User.organization_id == organization_id)
+
+        if exclude_role_id is not None:
+            query = query.filter(User.role_id != exclude_role_id)
 
         if user_ids is not None:
             query = query.filter(User.id.in_(user_ids))
@@ -86,6 +90,7 @@ class UserRepository:
         team_id: Optional[int] = None,
         employee_role_id: Optional[int] = None,
         include_user_id: Optional[int] = None,
+        exclude_role_id: Optional[int] = None,
     ) -> Tuple[list, int]:
         base = self._scoped_query(
             organization_id=organization_id,
@@ -93,6 +98,7 @@ class UserRepository:
             team_id=team_id,
             employee_role_id=employee_role_id,
             include_user_id=include_user_id,
+            exclude_role_id=exclude_role_id,
         )
         total = base.with_entities(func.count(User.id)).scalar() or 0
         rows = (

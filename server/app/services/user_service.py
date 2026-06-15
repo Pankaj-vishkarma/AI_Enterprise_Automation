@@ -12,6 +12,7 @@ from app.repositories.role_repository import RoleRepository
 from app.repositories.team_repository import TeamRepository
 from app.repositories.user_repository import UserRepository
 from app.utils.rbac_scope import assert_can_view_user_profile
+from app.utils.role_scope import is_org_assignable_role, should_exclude_super_admin_from_user_list
 
 
 class UserService:
@@ -31,6 +32,37 @@ class UserService:
 
         return role
 
+    def _super_admin_role_id(self) -> int | None:
+        role = self.role_repo.get_by_name(SUPER_ADMIN_ROLE)
+        return role.id if role else None
+
+    def _list_paginated_for_viewer(
+        self,
+        current_user,
+        *,
+        limit: int,
+        offset: int,
+        organization_id: int | None = None,
+        team_id: int | None = None,
+        employee_role_id: int | None = None,
+        include_user_id: int | None = None,
+    ) -> tuple[list, int]:
+        role_name = current_user.role.name if current_user.role else None
+        exclude_role_id = (
+            self._super_admin_role_id()
+            if should_exclude_super_admin_from_user_list(role_name)
+            else None
+        )
+        return self.user_repo.list_paginated(
+            limit=limit,
+            offset=offset,
+            organization_id=organization_id,
+            team_id=team_id,
+            employee_role_id=employee_role_id,
+            include_user_id=include_user_id,
+            exclude_role_id=exclude_role_id,
+        )
+
     def list_visible_users(
         self,
         current_user,
@@ -43,7 +75,8 @@ class UserService:
             return self.user_repo.list_paginated(limit=limit, offset=offset)
 
         if role_name == ORG_ADMIN_ROLE:
-            return self.user_repo.list_paginated(
+            return self._list_paginated_for_viewer(
+                current_user,
                 limit=limit,
                 offset=offset,
                 organization_id=current_user.organization_id,
@@ -52,16 +85,17 @@ class UserService:
         if role_name == MANAGER_ROLE:
             if not current_user.team_id:
                 if current_user.id:
-                    rows, total = self.user_repo.list_paginated(
+                    return self._list_paginated_for_viewer(
+                        current_user,
                         limit=limit,
                         offset=offset,
                         include_user_id=current_user.id,
                     )
-                    return rows, total
                 return [], 0
 
             employee_role = self._role_by_name(EMPLOYEE_ROLE)
-            return self.user_repo.list_paginated(
+            return self._list_paginated_for_viewer(
+                current_user,
                 limit=limit,
                 offset=offset,
                 organization_id=current_user.organization_id,
@@ -70,7 +104,8 @@ class UserService:
                 include_user_id=current_user.id,
             )
 
-        return self.user_repo.list_paginated(
+        return self._list_paginated_for_viewer(
+            current_user,
             limit=limit,
             offset=offset,
             include_user_id=current_user.id,
@@ -186,6 +221,8 @@ class UserService:
             raise ValueError("Role not found")
         if role.name == SUPER_ADMIN_ROLE and current_role != SUPER_ADMIN_ROLE:
             raise PermissionError("Only SUPER_ADMIN can create SUPER_ADMIN users")
+        if current_role != SUPER_ADMIN_ROLE and not is_org_assignable_role(role.name):
+            raise PermissionError("Only organization-level roles can be assigned")
 
         organization_id = current_user.organization_id
 

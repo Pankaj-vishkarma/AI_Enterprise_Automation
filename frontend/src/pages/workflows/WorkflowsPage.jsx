@@ -37,28 +37,48 @@ export default function WorkflowsPage() {
   const { data: workflowsRes, isLoading } = useQuery({
     queryKey: ['workflows'],
     queryFn: () => workflowsAPI.list(),
+    enabled: activeTab === 'definitions' || isModalOpen,
   });
   const { data: instancesRes } = useQuery({
     queryKey: ['workflow-instances'],
     queryFn: () => workflowsAPI.listInstances({ limit: 50 }),
+    enabled: activeTab === 'instances',
   });
   const { data: metricsRes } = useQuery({
     queryKey: ['workflow-metrics'],
     queryFn: () => workflowsAPI.getMetrics(),
+    enabled: activeTab === 'metrics',
   });
   const { data: templatesRes } = useQuery({
     queryKey: ['workflow-templates'],
     queryFn: () => workflowsAPI.getTemplates(),
+    enabled: activeTab === 'templates' || isModalOpen,
   });
   const { data: notificationsRes, refetch: refetchNotifications } = useQuery({
     queryKey: ['workflow-notifications'],
     queryFn: () => workflowsAPI.listNotifications(false),
     enabled: activeTab === 'notifications' && canUseWorkflows,
   });
-  const { data: usersRes } = useQuery({ queryKey: ['users'], queryFn: () => usersAPI.list() });
-  const { data: deptRes } = useQuery({ queryKey: ['departments'], queryFn: () => departmentsAPI.list() });
-  const { data: teamsRes } = useQuery({ queryKey: ['teams'], queryFn: () => teamsAPI.list() });
-  const { data: employeesRes } = useQuery({ queryKey: ['ai-employees'], queryFn: () => aiEmployeesAPI.list() });
+  const { data: usersRes } = useQuery({
+    queryKey: ['users'],
+    queryFn: () => usersAPI.list(),
+    enabled: isModalOpen,
+  });
+  const { data: deptRes } = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => departmentsAPI.list(),
+    enabled: isModalOpen,
+  });
+  const { data: teamsRes } = useQuery({
+    queryKey: ['teams'],
+    queryFn: () => teamsAPI.list(),
+    enabled: isModalOpen,
+  });
+  const { data: employeesRes } = useQuery({
+    queryKey: ['ai-employees'],
+    queryFn: () => aiEmployeesAPI.list(),
+    enabled: isModalOpen,
+  });
 
   const workflows = workflowsRes?.data || [];
   const instances = instancesRes?.data || [];
@@ -70,10 +90,18 @@ export default function WorkflowsPage() {
   const teams = teamsRes?.data || [];
   const employees = employeesRes?.data || [];
 
-  const invalidate = () => {
+  const invalidateWorkflows = () => {
     queryClient.invalidateQueries({ queryKey: ['workflows'] });
+  };
+
+  const invalidateInstances = () => {
     queryClient.invalidateQueries({ queryKey: ['workflow-instances'] });
-    queryClient.invalidateQueries({ queryKey: ['workflow-metrics'] });
+  };
+
+  const invalidateMetricsIfActive = () => {
+    if (activeTab === 'metrics') {
+      queryClient.invalidateQueries({ queryKey: ['workflow-metrics'] });
+    }
   };
 
   const saveMutation = useMutation({
@@ -93,14 +121,15 @@ export default function WorkflowsPage() {
       };
       return form.id ? workflowsAPI.update(form.id, payload) : workflowsAPI.create(payload);
     },
-    onSuccess: () => { invalidate(); setIsModalOpen(false); setForm(emptyForm); setErrorText(''); },
+    onSuccess: () => { invalidateWorkflows(); setIsModalOpen(false); setForm(emptyForm); setErrorText(''); },
     onError: (err) => setErrorText(err.response?.data?.detail || 'Unable to save workflow'),
   });
 
   const startMutation = useMutation({
     mutationFn: () => workflowsAPI.start(startModal.workflowId, startModal.title),
     onSuccess: () => {
-      invalidate();
+      invalidateInstances();
+      invalidateMetricsIfActive();
       setStartModal({ open: false, workflowId: null, title: '' });
       setActiveTab('instances');
     },
@@ -109,16 +138,16 @@ export default function WorkflowsPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id) => workflowsAPI.delete(id),
-    onSuccess: invalidate,
+    onSuccess: invalidateWorkflows,
   });
 
   const disableMutation = useMutation({
     mutationFn: (id) => workflowsAPI.disable(id),
-    onSuccess: invalidate,
+    onSuccess: invalidateWorkflows,
   });
 
   const activateWorkflow = (id) =>
-    workflowsAPI.update(id, { status: 'active' }).then(() => invalidate());
+    workflowsAPI.update(id, { status: 'active' }).then(() => invalidateWorkflows());
 
   const openBuilder = (workflow = null, templateKey = null) => {
     if (templateKey && templates[templateKey]) {
@@ -413,32 +442,58 @@ export default function WorkflowsPage() {
                   <div className="space-y-3">
                     {form.steps.map((step, index) => (
                       <div key={index} className="p-3 border border-[#1A1A14]/10 rounded-xl space-y-2 bg-[#1A1A14]/[0.03]">
-                        <div className="flex gap-2">
-                          <input required placeholder="Step name" value={step.name} onChange={(e) => updateStep(index, 'name', e.target.value)} className={`${appInputPlain} flex-1 !py-1.5 text-xs`} />
-                          <select value={step.step_type} onChange={(e) => updateStep(index, 'step_type', e.target.value)} className={`${appSelect} !py-1.5 text-xs`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <input
+                            required
+                            placeholder="Step name"
+                            value={step.name}
+                            onChange={(e) => updateStep(index, 'name', e.target.value)}
+                            className={`${appInputPlain} w-full min-w-0 !py-1.5 text-xs`}
+                          />
+                          <select
+                            value={step.step_type}
+                            onChange={(e) => updateStep(index, 'step_type', e.target.value)}
+                            className={`${appSelect} w-full min-w-0 !py-1.5 text-xs`}
+                          >
                             <option value="approval">Approval</option>
                             <option value="review">Review</option>
                             <option value="ai">AI Step</option>
                             <option value="user">User Step</option>
                           </select>
                         </div>
-                        <div className="flex gap-2">
-                          <select value={step.assignee_type} onChange={(e) => updateStep(index, 'assignee_type', e.target.value)} className={`${appSelect} !py-1.5 text-xs`}>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <select
+                            value={step.assignee_type}
+                            onChange={(e) => updateStep(index, 'assignee_type', e.target.value)}
+                            className={`${appSelect} w-full min-w-0 !py-1.5 text-xs`}
+                          >
                             <option value="user">User</option>
                             <option value="department">Department</option>
                             <option value="team">Team</option>
                             <option value="ai_employee">AI Employee</option>
                           </select>
-                          <select value={step.assignee_id} onChange={(e) => updateStep(index, 'assignee_id', e.target.value)} className={`${appSelect} flex-1 !py-1.5 text-xs`}>
+                          <select
+                            value={step.assignee_id}
+                            onChange={(e) => updateStep(index, 'assignee_id', e.target.value)}
+                            className={`${appSelect} w-full min-w-0 !py-1.5 text-xs`}
+                          >
                             <option value="">Select assignee...</option>
                             {assigneeOptions(step.assignee_type).map((o) => (
                               <option key={o.id} value={o.id}>{o.label}</option>
                             ))}
                           </select>
-                          {form.steps.length > 1 && (
-                            <button type="button" onClick={() => setForm({ ...form, steps: form.steps.filter((_, i) => i !== index) })} className="text-red-600 text-xs px-2">Remove</button>
-                          )}
                         </div>
+                        {form.steps.length > 1 && (
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              onClick={() => setForm({ ...form, steps: form.steps.filter((_, i) => i !== index) })}
+                              className="text-red-600 text-xs px-2 py-1"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

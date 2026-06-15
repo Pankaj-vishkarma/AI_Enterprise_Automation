@@ -8,6 +8,20 @@ const client = axios.create({
   },
 });
 
+/** Auth endpoints that must not trigger token refresh on 401 (e.g. invalid login). */
+const AUTH_NO_REFRESH_PATHS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/register',
+  '/api/v1/auth/forgot-password',
+  '/api/v1/auth/reset-password',
+  '/api/v1/auth/refresh',
+];
+
+function shouldSkipAuthRefresh(request) {
+  const url = request?.url || '';
+  return AUTH_NO_REFRESH_PATHS.some((path) => url.includes(path));
+}
+
 // Request interceptor: inject access token
 client.interceptors.request.use(
   (reqConfig) => {
@@ -26,7 +40,7 @@ client.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (error.response?.status === 401 && !originalRequest._retry && !shouldSkipAuthRefresh(originalRequest)) {
       originalRequest._retry = true;
 
       try {

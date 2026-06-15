@@ -29,7 +29,6 @@ export default function WorkflowInstancePage() {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['workflow-instance', id] });
     queryClient.invalidateQueries({ queryKey: ['workflow-instances'] });
-    queryClient.invalidateQueries({ queryKey: ['workflow-metrics'] });
   };
 
   const approveMutation = useMutation({

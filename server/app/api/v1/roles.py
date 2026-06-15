@@ -20,7 +20,7 @@ def list_roles(
     db: Session = Depends(get_db),
 ):
     service = RoleService(db)
-    return service.list_roles()
+    return service.list_roles(current_user)
 
 
 @router.get("/{role_id}", response_model=RoleResponse)

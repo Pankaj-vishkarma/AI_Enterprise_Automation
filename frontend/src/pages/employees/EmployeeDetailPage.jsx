@@ -21,8 +21,12 @@ import {
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appBtnPrimary, appBtnGhost, appBtnIcon, appError, appEmpty, appLoading, appInputPlain, appSelect, appLabel, appBadgeActive, appBadgeError, appBadgeInfo, appTabActive, appTabInactive } from '../../styles/appStyles';
 import { applyRunToQueryCache } from './aiEmployeeCache';
+import { useRbac } from '../../hooks/useRbac';
+import { PERMISSIONS } from '../../utils/rbac';
 
 export default function EmployeeDetailPage() {
+  const { hasPermission } = useRbac();
+  const canManageEmployees = hasPermission(PERMISSIONS.AI_EMPLOYEE_MANAGE);
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -198,6 +202,7 @@ export default function EmployeeDetailPage() {
               {data.role} • {data.department || 'No department'} • {employee.status}
             </p>
           </div>
+          {canManageEmployees && (
           <div className="flex gap-2">
             {employee.status === 'Active' ? (
               <button
@@ -226,6 +231,7 @@ export default function EmployeeDetailPage() {
               Delete
             </button>
           </div>
+          )}
         </div>
 
         <div className="flex gap-2 border-b border-[#1A1A14]/10 overflow-x-auto">
@@ -242,6 +248,7 @@ export default function EmployeeDetailPage() {
               </button>
             );
           })}
+          {canManageEmployees && (
           <button
             onClick={() => {
               if (isEditing) {
@@ -256,11 +263,12 @@ export default function EmployeeDetailPage() {
             <Edit size={16} />
             {isEditing ? 'Cancel Edit' : 'Edit'}
           </button>
+          )}
         </div>
 
         {errorText && <div className={appError}>{errorText}</div>}
 
-        {isEditing && editForm && (
+        {canManageEmployees && isEditing && editForm && (
           <div className={`${appGlassCard} space-y-4`}>
             <h2 className={appSectionTitle}>Edit AI Employee</h2>
             {(isConfigLoading || isDeptLoading || isDocsLoading) && (

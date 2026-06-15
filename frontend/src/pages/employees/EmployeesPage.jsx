@@ -234,7 +234,7 @@ export default function EmployeesPage() {
           </div>
         )}
 
-        {isModalOpen && (
+        {canManageEmployees && isModalOpen && (
           <div className={appModalOverlay}>
             <div className={`${appModal} max-w-2xl !p-0 flex flex-col max-h-[90vh] overflow-hidden`}>
               <div className="flex justify-between items-center px-6 py-4 border-b border-[#1A1A14]/10 bg-[#1A1A14]/[0.04]">

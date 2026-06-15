@@ -3,6 +3,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import SUPER_ADMIN_ROLE
+from app.utils.role_scope import is_org_assignable_role, roles_for_user_management_viewer
 from app.models.user import User
 from app.repositories.permission_repository import PermissionRepository
 from app.repositories.role_repository import RoleRepository
@@ -17,8 +18,12 @@ class RoleService:
         self.permission_repo = PermissionRepository(db)
         self.user_repo = UserRepository(db)
 
-    def list_roles(self):
-        return self.role_repo.list_all_with_permissions()
+    def list_roles(self, current_user=None):
+        roles = self.role_repo.list_all_with_permissions()
+        if current_user is None:
+            return roles
+        viewer_role = current_user.role.name if current_user.role else None
+        return roles_for_user_management_viewer(viewer_role, roles)
 
     def get_role_by_id(self, role_id: int):
         return self.role_repo.get_by_id_with_permissions(role_id)
@@ -94,6 +99,8 @@ class RoleService:
 
         if role.name == SUPER_ADMIN_ROLE and current_role != SUPER_ADMIN_ROLE:
             raise PermissionError("Only SUPER_ADMIN can assign the SUPER_ADMIN role")
+        if current_role != SUPER_ADMIN_ROLE and not is_org_assignable_role(role.name):
+            raise PermissionError("Only organization-level roles can be assigned")
 
         return self.user_repo.update_role_id(
             target_user_id,

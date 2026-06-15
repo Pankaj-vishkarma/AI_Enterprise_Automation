@@ -25,6 +25,9 @@ export const ROLES = {
 export const ALL_ROLES = Object.values(ROLES);
 export const ELEVATED_ROLES = [ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.MANAGER];
 
+/** Organization-level assignable roles (must match server ORG_ASSIGNABLE_ROLE_NAMES). */
+export const ORG_ASSIGNABLE_ROLES = [ROLES.ORG_ADMIN, ROLES.MANAGER, ROLES.EMPLOYEE];
+
 export const PERMISSIONS = {
   VIEW_ROLES: 'VIEW_ROLES',
   MANAGE_USER_ROLES: 'MANAGE_USER_ROLES',

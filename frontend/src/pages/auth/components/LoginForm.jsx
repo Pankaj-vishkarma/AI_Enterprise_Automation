@@ -5,7 +5,7 @@ import { ArrowRight, Mail, Lock, Eye, EyeOff, Sparkles, Shield } from 'lucide-re
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
 import { validateAuthEmail, validateAuthPassword, trimAuthEmail } from '../../../utils/validators';
-import { getApiErrorMessage } from '../../../utils/apiError';
+import { getLoginErrorMessage } from '../../../utils/apiError';
 import BrandLogo from '../../landing/components/ui/BrandLogo';
 import { BRAND } from '../../landing/constants';
 
@@ -38,7 +38,7 @@ export default function LoginForm() {
       toast.success('Login successful.');
       navigate('/dashboard');
     } catch (err) {
-      toast.error(getApiErrorMessage(err, 'Incorrect credentials. Please try again.'));
+      toast.error(getLoginErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

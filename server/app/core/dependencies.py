@@ -50,6 +50,9 @@ ANALYTICS_VIEW_PERMISSION = "ANALYTICS_VIEW"
 
 ELEVATED_ROLES = frozenset({SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE, MANAGER_ROLE})
 
+# Roles that organization admins may assign when creating or editing users.
+ORG_ASSIGNABLE_ROLE_NAMES = frozenset({ORG_ADMIN_ROLE, MANAGER_ROLE, EMPLOYEE_ROLE})
+
 
 def get_user_permissions(user) -> set[str]:
     role_name = getattr(getattr(user, "role", None), "name", None)

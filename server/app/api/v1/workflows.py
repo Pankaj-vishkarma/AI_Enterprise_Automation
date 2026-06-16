@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.dependencies import (
     WORKFLOW_APPROVE_PERMISSION,
+    WORKFLOW_MANAGE_PERMISSION,
     WORKFLOW_USE_PERMISSION,
     require_permission,
 )
@@ -24,6 +25,7 @@ from app.services.workflow_service import WorkflowService
 router = APIRouter(prefix="/api/v1/workflows", tags=["workflows"])
 
 require_workflow_use = require_permission(WORKFLOW_USE_PERMISSION)
+require_workflow_manage = require_permission(WORKFLOW_MANAGE_PERMISSION)
 require_workflow_approve = require_permission(WORKFLOW_APPROVE_PERMISSION)
 
 
@@ -45,10 +47,16 @@ def get_metrics(current_user=Depends(require_workflow_use), db: Session = Depend
 def list_instances(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    scope: Optional[str] = Query(
+        default=None,
+        description="Filter: mine (default), pending_approval, or all_accessible",
+    ),
     current_user=Depends(require_workflow_use),
     db: Session = Depends(get_db),
 ):
-    return WorkflowService(db).list_instances(current_user, limit=limit, offset=offset)
+    return WorkflowService(db).list_instances(
+        current_user, limit=limit, offset=offset, scope=scope
+    )
 
 
 @router.get("/instances/{instance_id}", response_model=WorkflowInstanceResponse)
@@ -156,13 +164,15 @@ def list_workflows(current_user=Depends(require_workflow_use), db: Session = Dep
 @router.post("", response_model=WorkflowResponse, status_code=status.HTTP_201_CREATED)
 def create_workflow(
     payload: WorkflowCreate,
-    current_user=Depends(require_workflow_use),
+    current_user=Depends(require_workflow_manage),
     db: Session = Depends(get_db),
 ):
     try:
         return WorkflowService(db).create_workflow(current_user, payload.model_dump())
     except PermissionError as exc:
         _permission_error(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.get("/{workflow_id}", response_model=WorkflowResponse)
@@ -181,7 +191,7 @@ def get_workflow(
 def update_workflow(
     workflow_id: int,
     payload: WorkflowUpdate,
-    current_user=Depends(require_workflow_use),
+    current_user=Depends(require_workflow_manage),
     db: Session = Depends(get_db),
 ):
     try:
@@ -190,6 +200,8 @@ def update_workflow(
         )
     except PermissionError as exc:
         _permission_error(exc)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workflow not found")
     return result
@@ -198,7 +210,7 @@ def update_workflow(
 @router.post("/{workflow_id}/disable", response_model=WorkflowResponse)
 def disable_workflow(
     workflow_id: int,
-    current_user=Depends(require_workflow_use),
+    current_user=Depends(require_workflow_manage),
     db: Session = Depends(get_db),
 ):
     try:
@@ -213,7 +225,7 @@ def disable_workflow(
 @router.delete("/{workflow_id}")
 def delete_workflow(
     workflow_id: int,
-    current_user=Depends(require_workflow_use),
+    current_user=Depends(require_workflow_manage),
     db: Session = Depends(get_db),
 ):
     try:

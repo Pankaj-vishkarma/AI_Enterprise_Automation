@@ -9,7 +9,7 @@ import { getSidebarItems } from '../../utils/rbac';
 export default function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
   const { user } = useAuth();
-  const menuItems = getSidebarItems(user?.role);
+  const menuItems = getSidebarItems(user);
 
   return (
     <div className="h-full flex flex-col bg-[#F1F0E3] border-r border-[#1A1A14]/[0.08]">

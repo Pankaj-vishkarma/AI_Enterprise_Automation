@@ -4,20 +4,24 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import MANAGER_ROLE, ORG_ADMIN_ROLE, SUPER_ADMIN_ROLE
+from app.core.dependencies import (
+    ORG_ADMIN_ROLE,
+    SUPER_ADMIN_ROLE,
+    WORKFLOW_MANAGE_PERMISSION,
+    user_has_permission,
+)
 from app.models.ai_employee import AIEmployee
 from app.models.department import Department
 from app.models.team import Team
 from app.models.user import User
 from app.models.workflow import WorkflowInstance, WorkflowInstanceStep
 from app.repositories.workflow_repository import WorkflowRepository
-from app.schemas.workflow import WORKFLOW_TEMPLATES
+from app.schemas.workflow import UNASSIGNED_APPROVAL_MESSAGE, WORKFLOW_TEMPLATES
 from app.services.ai_employee_service import AIEmployeeService
 from app.services.notification_service import NotificationService
 from app.repositories.user_repository import UserRepository
 from app.utils.rbac_scope import (
-    assert_can_view_user_owned_record,
-    filter_user_owned_records,
+    can_view_user_owned_record,
     resolve_team_member_ids,
 )
 
@@ -29,21 +33,106 @@ class WorkflowService:
         self.notifications = NotificationService(db)
         self.ai_employees = AIEmployeeService(db)
 
+    @staticmethod
+    def _approval_step_needs_assignee(step) -> bool:
+        if isinstance(step, dict):
+            step_type = step.get("step_type")
+            assignee_type = step.get("assignee_type")
+            assignee_id = step.get("assignee_id")
+        else:
+            step_type = step.step_type
+            assignee_type = step.assignee_type
+            assignee_id = step.assignee_id
+        return step_type == "approval" and bool(assignee_type) and not assignee_id
+
+    def _assert_approval_assignees(self, steps) -> None:
+        if any(self._approval_step_needs_assignee(step) for step in (steps or [])):
+            raise ValueError(UNASSIGNED_APPROVAL_MESSAGE)
+
+    def _resolve_user_display_name(self, organization_id: int, user_id: int) -> Optional[str]:
+        user = (
+            self.db.query(User)
+            .filter(User.id == user_id, User.organization_id == organization_id)
+            .first()
+        )
+        if not user:
+            return None
+        parts = [user.first_name, user.last_name or ""]
+        return " ".join(p for p in parts if p).strip() or None
+
+    def _started_by_name_map(self, organization_id: int, instances: List[WorkflowInstance]) -> dict:
+        user_ids = {inst.started_by_user_id for inst in instances if inst.started_by_user_id}
+        if not user_ids:
+            return {}
+        users = (
+            self.db.query(User)
+            .filter(User.organization_id == organization_id, User.id.in_(user_ids))
+            .all()
+        )
+        return {
+            user.id: " ".join(p for p in [user.first_name, user.last_name or ""] if p).strip()
+            for user in users
+        }
+
+    def _serialize_instances(
+        self, instances: List[WorkflowInstance], organization_id: int
+    ) -> List[dict]:
+        name_map = self._started_by_name_map(organization_id, instances)
+        return [self._serialize_instance(inst, name_map) for inst in instances]
+
     def _team_member_ids(self, current_user):
         users = UserRepository(self.db).list_by_organization(current_user.organization_id)
         return resolve_team_member_ids(users, current_user)
 
     def _assert_instance_access(self, current_user, instance) -> None:
-        assert_can_view_user_owned_record(
-            current_user,
-            instance.started_by_user_id,
-            self._team_member_ids(current_user),
-        )
+        if not self._can_view_instance(current_user, instance):
+            raise PermissionError("You do not have access to this record")
 
     def _assert_manage(self, current_user):
         role_name = current_user.role.name if current_user.role else None
-        if role_name not in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE, MANAGER_ROLE}:
+        if role_name == SUPER_ADMIN_ROLE:
+            return
+        if not user_has_permission(current_user, WORKFLOW_MANAGE_PERMISSION):
             raise PermissionError("Insufficient permissions to manage workflows")
+
+    def _user_matches_step_assignee(self, current_user, step: WorkflowInstanceStep) -> bool:
+        if step.assignee_type == "user" and step.assignee_id == current_user.id:
+            return True
+        if step.assignee_type == "department" and step.assignee_id == current_user.department_id:
+            return True
+        if step.assignee_type == "team" and step.assignee_id == current_user.team_id:
+            return True
+        return False
+
+    def _has_pending_step_for_user(self, current_user, instance: WorkflowInstance) -> bool:
+        for step in instance.steps or []:
+            if step.status == "pending" and self._user_matches_step_assignee(current_user, step):
+                return True
+        return False
+
+    def _user_is_assignee_on_instance(self, current_user, instance: WorkflowInstance) -> bool:
+        """True when user is assigned on any step (pending, upcoming, or completed)."""
+        for step in instance.steps or []:
+            if self._user_matches_step_assignee(current_user, step):
+                return True
+        return False
+
+    def _can_view_instance(self, current_user, instance: WorkflowInstance) -> bool:
+        role_name = current_user.role.name if current_user.role else None
+        if role_name in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
+            return True
+        if can_view_user_owned_record(
+            current_user,
+            instance.started_by_user_id,
+            self._team_member_ids(current_user),
+        ):
+            return True
+        for step in instance.steps or []:
+            if step.acted_by_user_id == current_user.id:
+                return True
+        if self._user_is_assignee_on_instance(current_user, instance):
+            return True
+        return False
 
     def get_templates(self):
         return WORKFLOW_TEMPLATES
@@ -62,6 +151,7 @@ class WorkflowService:
         steps = payload.get("steps", [])
         for index, step in enumerate(steps):
             step["position"] = step.get("position", index)
+        self._assert_approval_assignees(steps)
         workflow = self.repo.create_workflow(current_user.organization_id, current_user.id, payload)
         return self._serialize_workflow(workflow)
 
@@ -73,6 +163,14 @@ class WorkflowService:
         if payload.get("steps") is not None:
             for index, step in enumerate(payload["steps"]):
                 step["position"] = step.get("position", index)
+        if payload.get("steps") is not None:
+            self._assert_approval_assignees(payload["steps"])
+        next_status = payload.get("status", workflow.status)
+        if next_status == "active":
+            steps_for_validation = (
+                payload["steps"] if payload.get("steps") is not None else (workflow.steps or [])
+            )
+            self._assert_approval_assignees(steps_for_validation)
         updated = self.repo.update_workflow(workflow, payload)
         return self._serialize_workflow(updated)
 
@@ -92,16 +190,38 @@ class WorkflowService:
         self.repo.soft_delete_workflow(workflow)
         return {"id": workflow_id, "deleted": True}
 
-    def list_instances(self, current_user, limit: int = 50, offset: int = 0):
-        instances = self.repo.list_instances(current_user.organization_id, limit, offset)
-        members = self._team_member_ids(current_user)
-        instances = filter_user_owned_records(
-            current_user,
-            instances,
-            owner_attr="started_by_user_id",
-            member_ids=members,
-        )
-        return [self._serialize_instance(inst) for inst in instances]
+    def list_instances(
+        self,
+        current_user,
+        limit: int = 50,
+        offset: int = 0,
+        scope: Optional[str] = None,
+    ):
+        org_id = current_user.organization_id
+
+        if scope == "pending_approval":
+            pool = self.repo.list_instances(org_id, limit=200, offset=0)
+            pending = [
+                inst
+                for inst in pool
+                if inst.status == "in_progress" and self._has_pending_step_for_user(current_user, inst)
+            ]
+            page = pending[offset : offset + limit]
+            return self._serialize_instances(page, org_id)
+
+        if scope == "all_accessible":
+            pool = self.repo.list_instances(org_id, limit=200, offset=0)
+            accessible: dict[int, WorkflowInstance] = {}
+            for inst in pool:
+                if self._can_view_instance(current_user, inst):
+                    accessible[inst.id] = inst
+            ordered = sorted(accessible.values(), key=lambda i: i.id, reverse=True)
+            page = ordered[offset : offset + limit]
+            return self._serialize_instances(page, org_id)
+
+        instances = self.repo.list_instances(org_id, limit=limit, offset=offset)
+        mine = [inst for inst in instances if inst.started_by_user_id == current_user.id]
+        return self._serialize_instances(mine, org_id)
 
     def get_instance(self, current_user, instance_id: int):
         instance = self.repo.get_instance(current_user.organization_id, instance_id)
@@ -118,6 +238,7 @@ class WorkflowService:
             raise ValueError("Workflow must be active before starting an instance")
         if not workflow.steps:
             raise ValueError("Workflow has no steps defined")
+        self._assert_approval_assignees(workflow.steps)
         instance = self.repo.create_instance(
             current_user.organization_id, current_user.id, workflow, title
         )
@@ -372,16 +493,7 @@ class WorkflowService:
         return []
 
     def _can_act(self, current_user, step: WorkflowInstanceStep) -> bool:
-        role_name = current_user.role.name if current_user.role else None
-        if role_name in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE, MANAGER_ROLE}:
-            return True
-        if step.assignee_type == "user" and step.assignee_id == current_user.id:
-            return True
-        if step.assignee_type == "department" and step.assignee_id == current_user.department_id:
-            return True
-        if step.assignee_type == "team" and step.assignee_id == current_user.team_id:
-            return True
-        return False
+        return self._user_matches_step_assignee(current_user, step)
 
     @staticmethod
     def _get_step(instance: WorkflowInstance, step_id: int) -> Optional[WorkflowInstanceStep]:
@@ -433,11 +545,20 @@ class WorkflowService:
             "updated_at": workflow.updated_at,
         }
 
-    def _serialize_instance(self, instance) -> dict:
+    def _serialize_instance(
+        self, instance, started_by_names: Optional[dict] = None
+    ) -> dict:
         steps = sorted(instance.steps or [], key=lambda s: s.position)
         completed = sum(1 for s in steps if s.status in {"approved", "completed"})
         progress = round(completed * 100 / len(steps)) if steps else 0
         audit_logs = sorted(instance.audit_logs or [], key=lambda a: a.id)
+        started_by_name = None
+        if started_by_names and instance.started_by_user_id in started_by_names:
+            started_by_name = started_by_names[instance.started_by_user_id]
+        else:
+            started_by_name = self._resolve_user_display_name(
+                instance.organization_id, instance.started_by_user_id
+            )
         return {
             "id": instance.id,
             "workflow_id": instance.workflow_id,
@@ -448,6 +569,7 @@ class WorkflowService:
             "current_step_index": instance.current_step_index,
             "progress_percent": progress,
             "started_by_user_id": instance.started_by_user_id,
+            "started_by_name": started_by_name,
             "steps": [
                 {
                     "id": s.id,

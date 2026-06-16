@@ -86,6 +86,16 @@ class WorkflowRepository:
         if payload.get("status") is not None:
             workflow.status = payload["status"]
         if payload.get("steps") is not None:
+            existing_step_ids = [
+                step.id for step in (workflow.steps or []) if step.id is not None
+            ]
+            if existing_step_ids:
+                self.db.query(WorkflowInstanceStep).filter(
+                    WorkflowInstanceStep.workflow_step_id.in_(existing_step_ids)
+                ).update(
+                    {WorkflowInstanceStep.workflow_step_id: None},
+                    synchronize_session=False,
+                )
             self.db.query(WorkflowStep).filter(WorkflowStep.workflow_id == workflow.id).delete()
             for step in payload["steps"]:
                 self.db.add(

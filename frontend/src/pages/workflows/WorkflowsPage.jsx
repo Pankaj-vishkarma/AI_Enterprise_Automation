@@ -12,7 +12,58 @@ import {
 } from 'lucide-react';
 import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard, appInputPlain, appSelect, appBtnPrimary, appBtnGhost, appBtnIcon, appBtnIconDanger, appError, appEmpty, appLoading, appModalOverlay, appModal, appLabel, appTabActive, appTabInactive, appBadgeActive, appBadgeInactive, appBadgeWarning } from '../../styles/appStyles';
 import { useRbac } from '../../hooks/useRbac';
-import { PERMISSIONS, ROLES } from '../../utils/rbac';
+import { PERMISSIONS } from '../../utils/rbac';
+import { REFERENCE_LIST_LIMIT } from '../../utils/pagination';
+import { getApiErrorMessage } from '../../utils/apiError';
+
+const UNASSIGNED_APPROVAL_MESSAGE = 'Please select an assignee for all approval steps.';
+
+function formatUserLabel(user) {
+  const name = [user.first_name, user.last_name]
+    .filter((part) => part != null && String(part).trim() !== '')
+    .join(' ')
+    .trim();
+  return name || user.email || `User #${user.id}`;
+}
+
+function parseAssigneeId(raw) {
+  if (raw === '' || raw == null) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function hasUnassignedApprovalSteps(steps) {
+  return (steps || []).some(
+    (step) => step.step_type === 'approval' && step.assignee_type && !parseAssigneeId(step.assignee_id),
+  );
+}
+
+function isApprovalStepUnassigned(step) {
+  return step.step_type === 'approval' && step.assignee_type && !parseAssigneeId(step.assignee_id);
+}
+
+function normalizeAssigneeId(raw) {
+  const parsed = parseAssigneeId(raw);
+  return parsed != null ? String(parsed) : '';
+}
+
+function userMatchesStepAssignee(user, step) {
+  if (!user || !step) return false;
+  if (step.assignee_type === 'user' && step.assignee_id === user.id) return true;
+  if (step.assignee_type === 'department' && step.assignee_id === user.department_id) return true;
+  if (step.assignee_type === 'team' && step.assignee_id === user.team_id) return true;
+  return false;
+}
+
+function getPendingStepForUser(instance, user) {
+  return (instance.steps || []).find(
+    (step) => step.status === 'pending' && userMatchesStepAssignee(user, step),
+  );
+}
+
+function getCurrentPendingStep(instance) {
+  return (instance.steps || []).find((step) => step.status === 'pending');
+}
 
 const emptyStep = () => ({
   name: '', step_type: 'approval', assignee_type: 'user', assignee_id: '', position: 0,
@@ -23,15 +74,16 @@ const emptyForm = {
 };
 
 export default function WorkflowsPage() {
-  const { hasPermission, hasRole } = useRbac();
+  const { hasPermission, user } = useRbac();
   const canUseWorkflows = hasPermission(PERMISSIONS.WORKFLOW_USE);
-  const canManageWorkflows = hasPermission(PERMISSIONS.WORKFLOW_MANAGE)
-    || hasRole(ROLES.SUPER_ADMIN, ROLES.ORG_ADMIN, ROLES.MANAGER);
+  const canManageWorkflows = hasPermission(PERMISSIONS.WORKFLOW_MANAGE);
+  const canViewOrgMetrics = hasPermission(PERMISSIONS.ANALYTICS_VIEW);
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState('instances');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [startModal, setStartModal] = useState({ open: false, workflowId: null, title: '' });
+  const [instanceScope, setInstanceScope] = useState('mine');
   const [errorText, setErrorText] = useState('');
 
   const { data: workflowsRes, isLoading } = useQuery({
@@ -40,9 +92,17 @@ export default function WorkflowsPage() {
     enabled: activeTab === 'definitions' || isModalOpen,
   });
   const { data: instancesRes } = useQuery({
-    queryKey: ['workflow-instances'],
-    queryFn: () => workflowsAPI.listInstances({ limit: 50 }),
+    queryKey: ['workflow-instances', instanceScope],
+    queryFn: () => workflowsAPI.listInstances({ limit: 50, scope: instanceScope }),
     enabled: activeTab === 'instances',
+  });
+  const { data: activeWorkflowsRes } = useQuery({
+    queryKey: ['workflows', 'active-start'],
+    queryFn: async () => {
+      const { data } = await workflowsAPI.list();
+      return (data || []).filter((w) => w.status === 'active');
+    },
+    enabled: activeTab === 'instances' && canUseWorkflows,
   });
   const { data: metricsRes } = useQuery({
     queryKey: ['workflow-metrics'],
@@ -60,8 +120,8 @@ export default function WorkflowsPage() {
     enabled: activeTab === 'notifications' && canUseWorkflows,
   });
   const { data: usersRes } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => usersAPI.list(),
+    queryKey: ['users', REFERENCE_LIST_LIMIT],
+    queryFn: () => usersAPI.list({ limit: REFERENCE_LIST_LIMIT }),
     enabled: isModalOpen,
   });
   const { data: deptRes } = useQuery({
@@ -82,6 +142,7 @@ export default function WorkflowsPage() {
 
   const workflows = workflowsRes?.data || [];
   const instances = instancesRes?.data || [];
+  const activeWorkflows = activeWorkflowsRes || [];
   const metrics = metricsRes?.data || {};
   const templates = templatesRes?.data || {};
   const notifications = notificationsRes?.data || [];
@@ -115,14 +176,14 @@ export default function WorkflowsPage() {
           name: s.name,
           step_type: s.step_type,
           assignee_type: s.assignee_type || null,
-          assignee_id: s.assignee_id ? Number(s.assignee_id) : null,
+          assignee_id: parseAssigneeId(s.assignee_id),
           position: i,
         })),
       };
       return form.id ? workflowsAPI.update(form.id, payload) : workflowsAPI.create(payload);
     },
     onSuccess: () => { invalidateWorkflows(); setIsModalOpen(false); setForm(emptyForm); setErrorText(''); },
-    onError: (err) => setErrorText(err.response?.data?.detail || 'Unable to save workflow'),
+    onError: (err) => setErrorText(getApiErrorMessage(err, 'Unable to save workflow')),
   });
 
   const startMutation = useMutation({
@@ -133,7 +194,7 @@ export default function WorkflowsPage() {
       setStartModal({ open: false, workflowId: null, title: '' });
       setActiveTab('instances');
     },
-    onError: (err) => setErrorText(err.response?.data?.detail || 'Unable to start workflow'),
+    onError: (err) => setErrorText(getApiErrorMessage(err, 'Unable to start workflow')),
   });
 
   const deleteMutation = useMutation({
@@ -147,7 +208,19 @@ export default function WorkflowsPage() {
   });
 
   const activateWorkflow = (id) =>
-    workflowsAPI.update(id, { status: 'active' }).then(() => invalidateWorkflows());
+    workflowsAPI.update(id, { status: 'active' })
+      .then(() => invalidateWorkflows())
+      .catch((err) => setErrorText(getApiErrorMessage(err, 'Unable to activate workflow')));
+
+  const handleSaveWorkflow = (e) => {
+    e.preventDefault();
+    if (hasUnassignedApprovalSteps(form.steps)) {
+      setErrorText(UNASSIGNED_APPROVAL_MESSAGE);
+      return;
+    }
+    setErrorText('');
+    saveMutation.mutate();
+  };
 
   const openBuilder = (workflow = null, templateKey = null) => {
     if (templateKey && templates[templateKey]) {
@@ -171,7 +244,7 @@ export default function WorkflowsPage() {
           name: s.name,
           step_type: s.step_type,
           assignee_type: s.assignee_type || 'user',
-          assignee_id: s.assignee_id || '',
+          assignee_id: normalizeAssigneeId(s.assignee_id),
         })),
       });
     } else {
@@ -184,12 +257,18 @@ export default function WorkflowsPage() {
   const updateStep = (index, field, value) => {
     setForm((prev) => ({
       ...prev,
-      steps: prev.steps.map((s, i) => (i === index ? { ...s, [field]: value } : s)),
+      steps: prev.steps.map((s, i) => {
+        if (i !== index) return s;
+        if (field === 'assignee_type') {
+          return { ...s, assignee_type: value, assignee_id: '' };
+        }
+        return { ...s, [field]: value };
+      }),
     }));
   };
 
   const assigneeOptions = (type) => {
-    if (type === 'user') return users.map((u) => ({ id: u.id, label: `${u.first_name} ${u.last_name}` }));
+    if (type === 'user') return users.map((u) => ({ id: u.id, label: formatUserLabel(u) }));
     if (type === 'department') return departments.map((d) => ({ id: d.id, label: d.name }));
     if (type === 'team') return teams.map((t) => ({ id: t.id, label: t.name }));
     if (type === 'ai_employee') return employees.map((e) => ({ id: e.id, label: e.title }));
@@ -202,6 +281,19 @@ export default function WorkflowsPage() {
     { id: 'definitions', label: 'Workflow Definitions', icon: Layers },
     { id: 'templates', label: 'Templates', icon: Plus },
     { id: 'metrics', label: 'Metrics', icon: BarChart3 },
+  ];
+
+  const visibleTabs = tabs.filter((tab) => {
+    if (tab.id === 'metrics' && !canViewOrgMetrics) return false;
+    if (tab.id === 'templates' && !canManageWorkflows) return false;
+    if (tab.id === 'definitions' && !canManageWorkflows) return false;
+    return true;
+  });
+
+  const instanceScopeOptions = [
+    { id: 'mine', label: 'My Requests' },
+    { id: 'pending_approval', label: 'Pending Approvals' },
+    { id: 'all_accessible', label: 'All Accessible' },
   ];
 
   return (
@@ -226,7 +318,7 @@ export default function WorkflowsPage() {
         </div>
 
         <div className="flex gap-2 border-b border-[#1A1A14]/10 overflow-x-auto">
-          {tabs.map((tab) => {
+          {visibleTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -246,12 +338,62 @@ export default function WorkflowsPage() {
 
         {activeTab === 'instances' && (
           <div className="space-y-4">
+            {canUseWorkflows && activeWorkflows.length > 0 && (
+              <div className={`${appGlassCard} space-y-3`}>
+                <h2 className={appSectionTitle}>Start a Workflow</h2>
+                <p className="text-sm text-[#6A6A60]">
+                  Choose an active workflow definition to submit a new request.
+                </p>
+                <div className="space-y-2">
+                  {activeWorkflows.map((wf) => (
+                    <div key={wf.id} className="flex items-center justify-between gap-3 p-3 border border-[#1A1A14]/10 rounded-xl">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[#1A1A14] truncate">{wf.name}</p>
+                        <p className="text-xs text-[#6A6A60]">{wf.category} • {wf.step_count} steps</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStartModal({
+                          open: true,
+                          workflowId: wf.id,
+                          title: `${wf.name} - ${new Date().toLocaleDateString()}`,
+                        })}
+                        className={appBtnPrimary}
+                      >
+                        <Play size={16} /> Start
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {instanceScopeOptions.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setInstanceScope(opt.id)}
+                  className={instanceScope === opt.id ? appTabActive : appTabInactive}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
             {instances.length === 0 ? (
               <div className={appEmpty}>
                 No workflow instances yet. Activate a workflow definition and start an instance.
               </div>
             ) : (
-              instances.map((inst) => (
+              instances.map((inst) => {
+                const actionStep = getPendingStepForUser(inst, user);
+                const currentStep = getCurrentPendingStep(inst);
+                const showApprovalIndicators = (
+                  instanceScope === 'pending_approval' || Boolean(actionStep)
+                ) && inst.status === 'in_progress' && currentStep;
+
+                return (
                 <Link
                   key={inst.id}
                   to={`/workflows/instances/${inst.id}`}
@@ -261,6 +403,29 @@ export default function WorkflowsPage() {
                     <div>
                       <h3 className="font-bold text-[#1A1A14]">{inst.title}</h3>
                       <p className="text-xs text-[#6A6A60] mt-1">{inst.workflow_name}</p>
+                      {inst.started_by_name && (
+                        <p className="text-xs text-[#6A6A60] mt-1">
+                          Requested By: <span className="font-medium text-[#1A1A14]">{inst.started_by_name}</span>
+                        </p>
+                      )}
+                      {showApprovalIndicators && (
+                        <div className="mt-2 space-y-1">
+                          {actionStep && (
+                            <span className={`${appBadgeWarning} inline-block`}>Action Required</span>
+                          )}
+                          <p className="text-xs text-[#6A6A60]">
+                            Current step: <span className="font-medium text-[#1A1A14]">{currentStep.name}</span>
+                          </p>
+                          <p className="text-xs text-[#6A6A60]">
+                            Pending approver: <span className="font-medium text-[#1A1A14]">{currentStep.assignee_label || 'Unassigned'}</span>
+                          </p>
+                          {actionStep && (
+                            <p className="text-xs text-[#1A1A14] font-medium">
+                              Open instance to Approve or Reject
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <span className={`text-xs font-semibold capitalize ${
                       inst.status === 'completed' ? appBadgeActive
@@ -278,7 +443,8 @@ export default function WorkflowsPage() {
                     <span className="text-xs font-medium text-[#1A1A14]">{inst.progress_percent}%</span>
                   </div>
                 </Link>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -412,14 +578,17 @@ export default function WorkflowsPage() {
           </div>
         )}
 
-        {isModalOpen && (
+        {canManageWorkflows && isModalOpen && (
           <div className={appModalOverlay}>
             <div className={`${appModal} max-w-2xl flex flex-col !p-0`}>
               <div className="flex justify-between items-center px-6 py-4 border-b border-[#1A1A14]/10">
                 <h2 className={appSectionTitle}>{form.id ? 'Edit Workflow' : 'Workflow Builder'}</h2>
                 <button onClick={() => setIsModalOpen(false)} className={appBtnIcon}><X size={20} /></button>
               </div>
-              <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(); }} className="p-6 space-y-4 overflow-y-auto">
+              <form onSubmit={handleSaveWorkflow} className="p-6 space-y-4 overflow-y-auto">
+                {hasUnassignedApprovalSteps(form.steps) && (
+                  <div className={appError}>{UNASSIGNED_APPROVAL_MESSAGE}</div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className={appLabel}>Name</label>
@@ -441,7 +610,14 @@ export default function WorkflowsPage() {
                   </div>
                   <div className="space-y-3">
                     {form.steps.map((step, index) => (
-                      <div key={index} className="p-3 border border-[#1A1A14]/10 rounded-xl space-y-2 bg-[#1A1A14]/[0.03]">
+                      <div
+                        key={index}
+                        className={`p-3 border rounded-xl space-y-2 bg-[#1A1A14]/[0.03] ${
+                          isApprovalStepUnassigned(step)
+                            ? 'border-amber-400/60 bg-amber-50/40'
+                            : 'border-[#1A1A14]/10'
+                        }`}
+                      >
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <input
                             required
@@ -479,10 +655,13 @@ export default function WorkflowsPage() {
                           >
                             <option value="">Select assignee...</option>
                             {assigneeOptions(step.assignee_type).map((o) => (
-                              <option key={o.id} value={o.id}>{o.label}</option>
+                              <option key={o.id} value={String(o.id)}>{o.label}</option>
                             ))}
                           </select>
                         </div>
+                        {isApprovalStepUnassigned(step) && (
+                          <p className="text-xs text-amber-800 font-medium">Assignee required for this approval step</p>
+                        )}
                         {form.steps.length > 1 && (
                           <div className="flex justify-end pt-1">
                             <button
@@ -500,7 +679,11 @@ export default function WorkflowsPage() {
                 </div>
                 <div className="flex gap-3 justify-end pt-2">
                   <button type="button" onClick={() => setIsModalOpen(false)} className={appBtnGhost}>Cancel</button>
-                  <button type="submit" disabled={saveMutation.isPending} className={appBtnPrimary}>
+                  <button
+                    type="submit"
+                    disabled={saveMutation.isPending || hasUnassignedApprovalSteps(form.steps)}
+                    className={appBtnPrimary}
+                  >
                     {saveMutation.isPending ? 'Saving...' : 'Save Workflow'}
                   </button>
                 </div>

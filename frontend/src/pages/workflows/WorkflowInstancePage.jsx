@@ -11,8 +11,16 @@ import { appPageShell, appPageTitle, appPageDesc, appSectionTitle, appGlassCard,
 import { useRbac } from '../../hooks/useRbac';
 import { PERMISSIONS } from '../../utils/rbac';
 
+function canActOnStep(user, step) {
+  if (!user || step.status !== 'pending') return false;
+  if (step.assignee_type === 'user' && step.assignee_id === user.id) return true;
+  if (step.assignee_type === 'department' && step.assignee_id === user.department_id) return true;
+  if (step.assignee_type === 'team' && step.assignee_id === user.team_id) return true;
+  return false;
+}
+
 export default function WorkflowInstancePage() {
-  const { hasPermission } = useRbac();
+  const { hasPermission, user } = useRbac();
   const canApproveWorkflow = hasPermission(PERMISSIONS.WORKFLOW_APPROVE);
   const canUseWorkflows = hasPermission(PERMISSIONS.WORKFLOW_USE);
   const { id } = useParams();
@@ -92,6 +100,11 @@ export default function WorkflowInstancePage() {
             <p className={appPageDesc}>
               {instance.workflow_name} • {instance.status.replace('_', ' ')}
             </p>
+            {instance.started_by_name && (
+              <p className="text-sm text-[#6A6A60] mt-1">
+                Requested By: <span className="font-medium text-[#1A1A14]">{instance.started_by_name}</span>
+              </p>
+            )}
           </div>
           {statusIcon}
         </div>
@@ -137,7 +150,7 @@ export default function WorkflowInstancePage() {
                   {step.ai_output && (
                     <p className="text-xs text-[#1A1A14] bg-white/50 border border-[#1A1A14]/10 p-2 rounded-xl whitespace-pre-wrap">{step.ai_output}</p>
                   )}
-                  {step.status === 'pending' && instance.status === 'in_progress' && canApproveWorkflow && (
+                  {step.status === 'pending' && instance.status === 'in_progress' && canApproveWorkflow && canActOnStep(user, step) && (
                     <div className="flex gap-2 pt-2">
                       <input
                         value={comment}

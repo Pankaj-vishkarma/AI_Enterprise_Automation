@@ -72,7 +72,7 @@ const ROUTE_RULES = [
   { pattern: /^\/knowledge(\/.*)?$/, roles: ALL_ROLES, permissions: [PERMISSIONS.KNOWLEDGE_VIEW] },
   { pattern: /^\/employees(\/.*)?$/, roles: ALL_ROLES, permissions: [PERMISSIONS.AI_EMPLOYEE_USE] },
   { pattern: /^\/collaboration$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.COLLABORATION_USE] },
-  { pattern: /^\/workflows(\/.*)?$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.WORKFLOW_USE] },
+  { pattern: /^\/workflows(\/.*)?$/, roles: ALL_ROLES, permissions: [PERMISSIONS.WORKFLOW_USE] },
   { pattern: /^\/research(\/.*)?$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.RESEARCH_ACCESS] },
   { pattern: /^\/browser-automation(\/.*)?$/, roles: ELEVATED_ROLES, permissions: [PERMISSIONS.BROWSER_ACCESS] },
   { pattern: /^\/voice-ai$/, roles: ALL_ROLES, permissions: [PERMISSIONS.VOICE_ACCESS] },
@@ -114,7 +114,8 @@ export const SIDEBAR_ITEMS = [
     path: '/workflows',
     label: 'Workflow',
     icon: Layers,
-    roles: ELEVATED_ROLES,
+    roles: ALL_ROLES,
+    permissions: [PERMISSIONS.WORKFLOW_USE],
   },
   {
     path: '/research',
@@ -170,9 +171,15 @@ export function canAccessRoute(pathname, userOrRole) {
   return true;
 }
 
-export function getSidebarItems(role) {
+export function getSidebarItems(userOrRole) {
+  const role = typeof userOrRole === 'string' ? userOrRole : userOrRole?.role;
   if (!role) return [];
-  return SIDEBAR_ITEMS.filter((item) => item.roles.includes(role));
+  const user = typeof userOrRole === 'object' ? userOrRole : null;
+  return SIDEBAR_ITEMS.filter((item) => {
+    if (!item.roles.includes(role) && role !== ROLES.SUPER_ADMIN) return false;
+    if (item.permissions?.length && user && !hasAnyPermission(user, item.permissions)) return false;
+    return true;
+  });
 }
 
 export function getDashboardConfig(role) {

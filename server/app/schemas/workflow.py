@@ -19,6 +19,8 @@ INSTANCE_STATUSES = ["draft", "in_progress", "approved", "rejected", "completed"
 STEP_TYPES = ["approval", "review", "ai", "user"]
 ASSIGNEE_TYPES = ["user", "department", "team", "ai_employee"]
 
+UNASSIGNED_APPROVAL_MESSAGE = "Please select an assignee for all approval steps."
+
 WORKFLOW_TEMPLATES: Dict[str, Dict[str, Any]] = {
     "Employee Onboarding": {
         "description": "Onboard new employees through HR, IT, and manager approvals.",
@@ -29,10 +31,11 @@ WORKFLOW_TEMPLATES: Dict[str, Dict[str, Any]] = {
         ],
     },
     "Leave Approval": {
-        "description": "Process employee leave requests through manager and HR.",
+        "description": "Process employee leave requests through manager, HR, and organization admin approval.",
         "steps": [
             {"name": "Manager Sign-off", "step_type": "approval", "assignee_type": "user"},
             {"name": "HR Leave Record", "step_type": "approval", "assignee_type": "department"},
+            {"name": "ORG Admin Final Approval", "step_type": "approval", "assignee_type": "user"},
         ],
     },
     "Refund Processing": {
@@ -170,6 +173,7 @@ class WorkflowInstanceResponse(BaseModel):
     steps: List[InstanceStepResponse] = Field(default_factory=list)
     audit_logs: List[AuditLogResponse] = Field(default_factory=list)
     started_by_user_id: int
+    started_by_name: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None

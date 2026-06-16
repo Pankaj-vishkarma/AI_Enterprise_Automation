@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../../context/AuthContext';
 import { useToast } from '../../../context/ToastContext';
-import { validateAuthEmail, validateAuthPassword, trimAuthEmail } from '../../../utils/validators';
+import { validateAuthEmail, validateAuthPassword, trimAuthEmail, validateOrganizationName, validateFirstName } from '../../../utils/validators';
 import { getApiErrorMessage } from '../../../utils/apiError';
 import BrandLogo from '../../landing/components/ui/BrandLogo';
 import { BRAND } from '../../landing/constants';
@@ -19,6 +19,9 @@ export default function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register, handleSubmit, watch, formState: { errors } } = useForm({
+    mode: 'onSubmit',
+    reValidateMode: 'onSubmit',
+    shouldFocusError: true,
     defaultValues: {
       organization_name: '',
       email: '',
@@ -45,11 +48,7 @@ export default function RegisterForm() {
       navigate('/dashboard');
     } catch (err) {
       const message = getApiErrorMessage(err, 'Registration failed. Please try again.');
-      if (message === 'Organization already exists') {
-        toast.error('Organization already exists. Please use a different organization name.');
-      } else {
-        toast.error(message);
-      }
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +73,11 @@ export default function RegisterForm() {
         Join {BRAND.fullName} and start building your AI workforce.
       </p>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="mt-5 space-y-3.5">
+      <form
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        className="mt-5 space-y-3.5"
+      >
         <div>
           <label htmlFor="organization_name" className="block text-sm font-medium text-[#1A1A14] mb-1.5">
             Organization name
@@ -84,8 +87,7 @@ export default function RegisterForm() {
             <input
               id="organization_name"
               {...register('organization_name', {
-                required: 'Organization name is required',
-                minLength: { value: 2, message: 'Organization name must be at least 2 characters' },
+                validate: validateOrganizationName,
               })}
               type="text"
               autoComplete="organization"
@@ -105,7 +107,7 @@ export default function RegisterForm() {
               <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--muted-foreground)] pointer-events-none" />
               <input
                 id="first_name"
-                {...register('first_name', { required: 'First name is required' })}
+                {...register('first_name', { validate: validateFirstName })}
                 type="text"
                 autoComplete="given-name"
                 placeholder="First name"
@@ -137,7 +139,6 @@ export default function RegisterForm() {
             <input
               id="email"
               {...register('email', {
-                required: 'Email is required',
                 setValueAs: trimAuthEmail,
                 validate: validateAuthEmail,
               })}
@@ -157,7 +158,6 @@ export default function RegisterForm() {
             <input
               id="password"
               {...register('password', {
-                required: 'Password is required',
                 validate: (v) => validateAuthPassword(v, { checkStrength: true }),
               })}
               type={showPassword ? 'text' : 'password'}
@@ -184,7 +184,6 @@ export default function RegisterForm() {
             <input
               id="confirmPassword"
               {...register('confirmPassword', {
-                required: 'Please confirm your password',
                 validate: (v) => {
                   const result = validateAuthPassword(v);
                   if (result !== true) return result;

@@ -10,8 +10,17 @@ export function getApiErrorMessage(error, fallback = 'Something went wrong. Plea
 
   const detail = error.response?.data?.detail;
 
-  if (error.response?.data?.success === false && error.response?.data?.message) {
-    return error.response.data.message;
+  if (error.response?.data?.success === false) {
+    const details = error.response.data.details;
+    if (Array.isArray(details) && details.length > 0) {
+      const fieldMessages = details.map((item) => item?.msg).filter(Boolean);
+      if (fieldMessages.length > 0) {
+        return fieldMessages.join('. ');
+      }
+    }
+    if (error.response.data.message) {
+      return error.response.data.message;
+    }
   }
 
   if (typeof detail === 'string') {

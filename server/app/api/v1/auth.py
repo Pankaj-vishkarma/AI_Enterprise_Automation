@@ -64,7 +64,7 @@ def register(
         detail = str(exc)
         status_code = (
             status.HTTP_400_BAD_REQUEST
-            if detail == ORGANIZATION_EXISTS_MESSAGE
+            if detail in {ORGANIZATION_EXISTS_MESSAGE, "Organization name is required"}
             else status.HTTP_500_INTERNAL_SERVER_ERROR
         )
         raise HTTPException(

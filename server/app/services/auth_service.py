@@ -43,6 +43,8 @@ class AuthService:
         password: str,
     ):
         trimmed_org_name = organization_name.strip()
+        if not trimmed_org_name:
+            raise ValueError("Organization name is required")
 
         if self.organization_repo.get_by_normalized_name(trimmed_org_name):
             raise ValueError(ORGANIZATION_EXISTS_MESSAGE)

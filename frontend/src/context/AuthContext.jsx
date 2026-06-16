@@ -69,16 +69,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (registerData) => {
-    setLoading(true);
-    try {
-      const response = await authAPI.register(registerData);
-      localStorage.setItem('accessToken', response.data.access_token);
-      localStorage.setItem('refreshToken', response.data.refresh_token);
-      const userResponse = await authAPI.getCurrentUser();
-      return persistSession(response.data, userResponse.data);
-    } finally {
-      setLoading(false);
-    }
+    const response = await authAPI.register(registerData);
+    localStorage.setItem('accessToken', response.data.access_token);
+    localStorage.setItem('refreshToken', response.data.refresh_token);
+    const userResponse = await authAPI.getCurrentUser();
+    return persistSession(response.data, userResponse.data);
   };
 
   const logout = async () => {

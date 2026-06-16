@@ -48,6 +48,33 @@ export function validateAuthPassword(value, { required = true, checkStrength = f
 
 export const trimAuthEmail = (value) => (typeof value === 'string' ? value.trim() : value);
 
+/** Reject empty and whitespace-only text (spaces, tabs, newlines). */
+export function validateRequiredText(value, fieldLabel = 'This field') {
+  if (value == null || value === '') {
+    return `${fieldLabel} is required`;
+  }
+  if (typeof value !== 'string') {
+    return `${fieldLabel} is required`;
+  }
+  if (!value.trim()) {
+    return `${fieldLabel} is required`;
+  }
+  return true;
+}
+
+export function validateOrganizationName(value) {
+  const required = validateRequiredText(value, 'Organization name');
+  if (required !== true) return required;
+  if (value.trim().length < 2) {
+    return 'Organization name must be at least 2 characters';
+  }
+  return true;
+}
+
+export function validateFirstName(value) {
+  return validateRequiredText(value, 'First name');
+}
+
 export const validatePassword = (password) => {
   // At least 8 characters, one uppercase, one lowercase, one number
   const regex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d@$!%*?&]{8,}$/;

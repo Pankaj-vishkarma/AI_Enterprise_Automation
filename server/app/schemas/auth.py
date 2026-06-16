@@ -16,8 +16,8 @@ def _validate_password_strength(password: str) -> str:
 
 
 class RegisterRequest(BaseModel):
-    organization_name: str = Field(min_length=2, max_length=255)
-    first_name: str = Field(min_length=1, max_length=100)
+    organization_name: str = Field(max_length=255)
+    first_name: str = Field(max_length=100)
     last_name: str | None = Field(default=None, max_length=100)
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
@@ -26,9 +26,27 @@ class RegisterRequest(BaseModel):
     @classmethod
     def validate_organization_name(cls, value: str) -> str:
         trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("Organization name is required")
         if len(trimmed) < 2:
             raise ValueError("Organization name must be at least 2 characters")
         return trimmed
+
+    @field_validator("first_name")
+    @classmethod
+    def validate_first_name(cls, value: str) -> str:
+        trimmed = value.strip()
+        if not trimmed:
+            raise ValueError("First name is required")
+        return trimmed
+
+    @field_validator("last_name")
+    @classmethod
+    def validate_last_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        trimmed = value.strip()
+        return trimmed or None
 
     @field_validator("password")
     @classmethod

@@ -1,0 +1,432 @@
+from sqlalchemy.orm import Session
+
+from app.core.dependencies import (
+    EMPLOYEE_ROLE,
+    MANAGER_ROLE,
+    ORG_ADMIN_ROLE,
+    SUPER_ADMIN_ROLE,
+)
+from app.core.security import hash_password
+from app.repositories.department_repository import DepartmentRepository
+from app.repositories.role_repository import RoleRepository
+from app.repositories.team_repository import TeamRepository
+from app.repositories.user_repository import UserRepository
+from app.utils.rbac_scope import assert_can_view_user_profile
+from app.utils.role_scope import is_org_assignable_role, should_exclude_super_admin_from_user_list
+
+
+class UserService:
+
+    def __init__(self, db: Session):
+        self.db = db
+        self.user_repo = UserRepository(db)
+        self.role_repo = RoleRepository(db)
+        self.department_repo = DepartmentRepository(db)
+        self.team_repo = TeamRepository(db)
+
+    def _role_by_name(self, role_name: str):
+        role = self.role_repo.get_by_name(role_name)
+
+        if not role:
+            raise ValueError(f"{role_name} role not found")
+
+        return role
+
+    def _super_admin_role_id(self) -> int | None:
+        role = self.role_repo.get_by_name(SUPER_ADMIN_ROLE)
+        return role.id if role else None
+
+    def _list_paginated_for_viewer(
+        self,
+        current_user,
+        *,
+        limit: int,
+        offset: int,
+        organization_id: int | None = None,
+        team_id: int | None = None,
+        employee_role_id: int | None = None,
+        include_user_id: int | None = None,
+    ) -> tuple[list, int]:
+        role_name = current_user.role.name if current_user.role else None
+        exclude_role_id = (
+            self._super_admin_role_id()
+            if should_exclude_super_admin_from_user_list(role_name)
+            else None
+        )
+        return self.user_repo.list_paginated(
+            limit=limit,
+            offset=offset,
+            organization_id=organization_id,
+            team_id=team_id,
+            employee_role_id=employee_role_id,
+            include_user_id=include_user_id,
+            exclude_role_id=exclude_role_id,
+        )
+
+    def list_visible_users(
+        self,
+        current_user,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> tuple[list, int]:
+        role_name = current_user.role.name if current_user.role else None
+
+        if role_name == SUPER_ADMIN_ROLE:
+            return self.user_repo.list_paginated(limit=limit, offset=offset)
+
+        if role_name == ORG_ADMIN_ROLE:
+            return self._list_paginated_for_viewer(
+                current_user,
+                limit=limit,
+                offset=offset,
+                organization_id=current_user.organization_id,
+            )
+
+        if role_name == MANAGER_ROLE:
+            if not current_user.team_id:
+                if current_user.id:
+                    return self._list_paginated_for_viewer(
+                        current_user,
+                        limit=limit,
+                        offset=offset,
+                        include_user_id=current_user.id,
+                    )
+                return [], 0
+
+            employee_role = self._role_by_name(EMPLOYEE_ROLE)
+            return self._list_paginated_for_viewer(
+                current_user,
+                limit=limit,
+                offset=offset,
+                organization_id=current_user.organization_id,
+                team_id=current_user.team_id,
+                employee_role_id=employee_role.id,
+                include_user_id=current_user.id,
+            )
+
+        return self._list_paginated_for_viewer(
+            current_user,
+            limit=limit,
+            offset=offset,
+            include_user_id=current_user.id,
+        )
+
+    def create_user_for_org(
+        self,
+        *,
+        organization_id: int,
+        role_name: str,
+        first_name: str,
+        last_name: str | None,
+        email: str,
+        password: str,
+        department_id: int | None = None,
+        team_id: int | None = None,
+    ):
+        existing_user = self.user_repo.get_by_email(email)
+
+        if existing_user:
+            raise ValueError("Email already registered")
+
+        role = self._role_by_name(role_name)
+        password_hash = hash_password(password)
+
+        return self.user_repo.create(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password_hash=password_hash,
+            organization_id=organization_id,
+            role_id=role.id,
+            department_id=department_id,
+            team_id=team_id,
+        )
+
+    def _validate_department_assignment(
+        self,
+        current_user,
+        organization_id: int,
+        department_id: int,
+    ):
+        department = self.department_repo.get_by_id(department_id)
+
+        if not department:
+            raise ValueError("Department not found")
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and department.organization_id != organization_id
+        ):
+            raise PermissionError(
+                "Cross-organization department assignment is not allowed"
+            )
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and department.organization_id != current_user.organization_id
+        ):
+            raise PermissionError(
+                "Cross-organization department assignment is not allowed"
+            )
+
+        return department
+
+    def _validate_team_assignment(
+        self,
+        current_user,
+        organization_id: int,
+        team_id: int,
+    ):
+        team = self.team_repo.get_by_id(team_id)
+
+        if not team:
+            raise ValueError("Team not found")
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and team.organization_id != organization_id
+        ):
+            raise PermissionError("Cross-organization team assignment is not allowed")
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and team.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization team assignment is not allowed")
+
+        return team
+
+    def create_user_with_role(
+        self,
+        current_user,
+        *,
+        first_name: str,
+        last_name: str | None,
+        email: str,
+        password: str,
+        role_id: int,
+        department_id: int | None = None,
+        team_id: int | None = None,
+    ):
+        current_role = current_user.role.name if current_user.role else None
+        if current_role not in {SUPER_ADMIN_ROLE, ORG_ADMIN_ROLE}:
+            raise PermissionError("SUPER_ADMIN or ORG_ADMIN access required")
+
+        role = self.role_repo.get_by_id(role_id)
+        if not role:
+            raise ValueError("Role not found")
+        if role.name == SUPER_ADMIN_ROLE and current_role != SUPER_ADMIN_ROLE:
+            raise PermissionError("Only SUPER_ADMIN can create SUPER_ADMIN users")
+        if current_role != SUPER_ADMIN_ROLE and not is_org_assignable_role(role.name):
+            raise PermissionError("Only organization-level roles can be assigned")
+
+        organization_id = current_user.organization_id
+
+        existing_user = self.user_repo.get_by_email(email)
+        if existing_user:
+            raise ValueError("Email already registered")
+
+        if department_id is not None:
+            self._validate_department_assignment(
+                current_user,
+                organization_id,
+                department_id,
+            )
+
+        if team_id is not None:
+            self._validate_team_assignment(
+                current_user,
+                organization_id,
+                team_id,
+            )
+
+        password_hash = hash_password(password)
+
+        return self.user_repo.create(
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+            password_hash=password_hash,
+            organization_id=organization_id,
+            role_id=role.id,
+            department_id=department_id,
+            team_id=team_id,
+        )
+
+    def disable_user(self, current_user, target_user_id: int):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        return self.user_repo.update_is_active(
+            target_user_id,
+            False,
+        )
+
+    def get_user_by_id(
+        self,
+        current_user,
+        target_user_id: int,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user access is not allowed")
+
+        assert_can_view_user_profile(current_user, target_user)
+
+        return target_user
+
+    def update_user(
+        self,
+        current_user,
+        target_user_id: int,
+        first_name: str,
+        last_name: str | None,
+        email: str,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        existing_user = self.user_repo.get_by_email_excluding_user(
+            email=email,
+            user_id=target_user_id,
+        )
+
+        if existing_user:
+            raise ValueError("Email already registered")
+
+        return self.user_repo.update_user(
+            user_id=target_user_id,
+            first_name=first_name,
+            last_name=last_name,
+            email=email,
+        )
+
+    def enable_user(
+        self,
+        current_user,
+        target_user_id: int,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        return self.user_repo.update_is_active(
+            target_user_id,
+            True,
+        )
+
+    def assign_user_to_department(
+        self,
+        current_user,
+        target_user_id: int,
+        department_id: int,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        department = self.department_repo.get_by_id(department_id)
+
+        if not department:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and department.organization_id != current_user.organization_id
+        ):
+            raise PermissionError(
+                "Cross-organization department assignment is not allowed"
+            )
+
+        return self.user_repo.update_department_id(
+            target_user_id,
+            department_id,
+            user=target_user,
+        )
+
+    def assign_user_to_team(
+        self,
+        current_user,
+        target_user_id: int,
+        team_id: int,
+    ):
+        target_user = self.user_repo.get_by_id(target_user_id)
+
+        if not target_user:
+            return None
+
+        team = self.team_repo.get_by_id(team_id)
+
+        if not team:
+            return None
+
+        current_role = current_user.role.name if current_user.role else None
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and target_user.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization user management is not allowed")
+
+        if (
+            current_role != SUPER_ADMIN_ROLE
+            and team.organization_id != current_user.organization_id
+        ):
+            raise PermissionError("Cross-organization team assignment is not allowed")
+
+        return self.user_repo.update_team_id(
+            target_user_id,
+            team_id,
+            user=target_user,
+        )
